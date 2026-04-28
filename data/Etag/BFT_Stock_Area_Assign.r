@@ -1,6 +1,10 @@
+
+# Update R script for 4 areas (QH, 4/24/2026)
+
 #IMPORT DATA
-setwd('C:/users/matthew.lauretta/desktop/2026/bluefin/etag_data_summary/')
-data=read.csv('BFT_geolocations_2026_03_31.csv')
+#setwd('C:/users/matthew.lauretta/desktop/2026/bluefin/etag_data_summary/')
+#data=read.csv('BFT_geolocations_2026_03_31.csv')
+data=read.csv('data/Etag/BFT_geolocations_2026_03_31.csv')
 head(data)
 
 #DEFINE DATA FIELDS REFERENCES FOR THE DATASET TO MATCH THE CODE BELOW
@@ -16,7 +20,7 @@ data$Date = data$date
 	library(mapdata)
 
 windows()
-	map('worldHires',col=c('gray'),fill=T,xlim=c(-100,45),ylim=c(-50,80))
+	maps::map('worldHires',col=c('gray'),fill=T,xlim=c(-100,45),ylim=c(-50,80))
 	axis(1,at=seq(-100,45,5))
 	axis(2,at=seq(-50,80,5))
 	mtext('Longitude',1,line=3)
@@ -51,7 +55,7 @@ tags2 <- unique(data$tag[which(is.na(data$size_at_tagging)==TRUE)])
 	BFT11=list(x=c(23,45,45,23) ,y=c(50,50,30,30))
 
 #STOCK AREAS PLOTTED ON MAP
-	map('worldHires',col=c('gray'),fill=T,xlim=c(-100,45),ylim=c(-50,80))
+	maps::map('worldHires',col=c('gray'),fill=T,xlim=c(-100,45),ylim=c(-50,80))
 	axis(1,at=seq(-100,45,5))
 	axis(2,at=seq(-50,80,5))
 	mtext('Longitude',1,line=3)
@@ -61,26 +65,26 @@ tags2 <- unique(data$tag[which(is.na(data$size_at_tagging)==TRUE)])
 	polygon(BFT2,border=1,lwd=2)
 	text("WATL",x=-70,y=15,font=2,col=2)
 	polygon(BFT3,border=1,lwd=2)
-	text("GSL",x=-63,y=49,font=2,col=2)
+	text("WATL",x=-63,y=49,font=2,col=2)
 	polygon(BFT4,border=1,lwd=2)
-	text("W. ATL",x=-60,y=30,font=2,col=2)
+	text("WATL",x=-60,y=30,font=2,col=2)
 	polygon(BFT5,border=1,lwd=2)
-	text("N. ATL",x=-37.5,y=60,font=2,col=2)
+	text("EATL",x=-37.5,y=60,font=2,col=2)
 	polygon(BFT6,border=1,lwd=2)
-	text("S. ATL",x=-37.5,y=25,font=2,col=2)
+	text("EATL",x=-37.5,y=25,font=2,col=2)
 	polygon(BFT7,border=1,lwd=2)
-	text("N. ATL",x=-5,y=70,font=2,col=2)
+	text("EATL",x=-5,y=70,font=2,col=2)
 	polygon(BFT8,border=1,lwd=2)
-	text("E. ATL",x=-10,y=45,font=2,col=2)
+	text("EATL",x=-10,y=45,font=2,col=2)
 	polygon(BFT9,border=1,lwd=2)
-	text("S. ATL",x=-5,y=0,font=2,col=2)
+	text("EATL",x=-5,y=0,font=2,col=2)
 	polygon(BFT10,border=1,lwd=2)
 	text("MED",x=10,y=40,font=2,col=2)
 	polygon(BFT11,border=1,lwd=2)
 	text("MED",x=35,y=40,font=2,col=2)
 
 #STOCK AREA ASSIGNMENT BASED ON BFT LOCATION IN DECIMAL DEGRESS LAT AND LON
-	BFT_area=c("GOM", "W_ATL", "GSL", "W_ATL", "N_ATL", "S_ATL", "N_ATL", "E_ATL", "S_ATL", "MED", "MED")
+	BFT_area=c("GOM", "WATL", "WATL", "WATL", "EATL", "EATL", "EATL", "EATL", "EATL", "MED", "MED")
 	data$STOCK_AREA=as.character(sapply(1:length(data[,1]),function(i)BFT_area[which(c(
 		point.in.polygon(lon[i],lat[i],BFT1$x,BFT1$y),
 		point.in.polygon(lon[i],lat[i],BFT2$x,BFT2$y),
@@ -93,7 +97,7 @@ tags2 <- unique(data$tag[which(is.na(data$size_at_tagging)==TRUE)])
 		point.in.polygon(lon[i],lat[i],BFT9$x,BFT9$y),
 		point.in.polygon(lon[i],lat[i],BFT10$x,BFT10$y),
 		point.in.polygon(lon[i],lat[i],BFT11$x,BFT11$y))==1)]))
-write.csv(data,'BFT_geolocations_areas.csv',row.names=FALSE)
+write.csv(data,'data/Etag/BFT_geolocations_areas.csv',row.names=FALSE)
 
 #DATA AGGREGATION: DAYS PER STOCK AREA BY TAG_ID AND REGION TRANSITION
 	data$REGION_ENTRY=1
@@ -108,7 +112,7 @@ write.csv(data,'BFT_geolocations_areas.csv',row.names=FALSE)
 	summary$End_Date=sapply(1:length(summary[,1]),function(i)rev(data$Date[data$Reference_ID==summary$Tag_ID[i]&
 		data$STOCK_AREA==summary$Stock_Area[i]&data$REGION_ENTRY==summary$Entry[i]])[1])
 	#summary
-write.csv(summary,'BFT_etags_processed_forM3_20260331.csv',row.names=FALSE)
+write.csv(summary,'data/Etag/BFT_etags_processed_forM3_20260424.csv',row.names=FALSE)
 
 
 
