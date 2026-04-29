@@ -175,8 +175,8 @@ ggsave("figures/data/FI_Index.png", g, height = 4, width = 6)
 
 # Stock of origin
 SOO <- rbind(
-  read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Genetic"),
-  read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) |> mutate(Source = "Otolith")
+  read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Otolith"),
+  read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) |> mutate(Source = "Genetic")
 ) |>
   mutate(Season = substr(Quarter, 2, 2) |> as.numeric()) %>%
   mutate(Year = fYear + 0.25 * (Season - 1)) %>%
