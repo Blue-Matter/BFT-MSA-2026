@@ -31,6 +31,20 @@ fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
   mutate(FleetName = paste0(Number, " - ", Code))
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Catch
 Catch <- readxl::read_excel(xlsx_file, sheet = "Catch") %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name),
@@ -210,7 +224,9 @@ g <- etag %>%
   geom_line() +
   geom_point(aes(size = Nfr)) +
   labs(x = "To", y = "Proportion", size = "N", shape = "Age", linetype = "Age") +
-  theme(legend.position = 'bottom') +
+  theme(legend.position = 'bottom',
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_linetype_manual(values = 3:1) +
   scale_shape_manual(values = c(1, 4, 16)) +
   scale_x_continuous(labels = area_names$Name, breaks = 1:nrow(area_names)) +
