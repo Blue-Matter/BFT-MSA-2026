@@ -56,18 +56,18 @@ g@facet$params$free$y <- TRUE
 ggsave("figures/data/Cobs_annual2.png", g, height = 6, width = 6)
 
 # Seasonal catch
-g <- ggplot(Catch, aes(Year + 0.25 * (Season - 1), Catch, fill = Area)) +
-  geom_col(width = 0.25) +
+g <- ggplot(Catch, aes(Year, Catch, fill = Fleet)) +
+  geom_col(width = 1, colour = "grey40", linewidth = 0.1) +
   #geom_point() +
-  facet_wrap(vars(Fleet),
-             ncol = 3,
+  facet_grid(vars(Area), vars(paste("Season", Season)),
              scales = "free_y") +
   labs(x = "Year") +
   theme(panel.spacing = unit(0, "in"),
+        axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "bottom") +
   labs(y = "Seasonal Catch") +
   guides(fill = guide_legend(ncol = 4, title = NULL))
-ggsave("figures/data/Cobs_seasonal.png", g, height = 8, width = 6)
+ggsave("figures/data/Cobs_seasonal.png", g, height = 6, width = 6)
 
 # What is Hist_Catch??
 Hist_Catch <- readxl::read_excel(xlsx_file, sheet = "Hist_Catch")
@@ -76,7 +76,7 @@ g <- Hist_Catch %>%
   mutate(Year = Year + 0.25 * (Season - 1)) %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
   arrange(Year) %>%
-  #filter(Age < 10) %>%
+  filter(Age %in% seq(5, 40, 5)) %>%
   ggplot(aes(Year, Catch, colour = Age, group = Age)) +
   geom_line() +
   geom_point() +
