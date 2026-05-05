@@ -206,6 +206,9 @@ Catch <- readxl::read_excel(xlsx_file, sheet = "Catch") %>%
 Dfishery@Cobs_ymfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dfishery@nf, Dmodel@nr))
 Dfishery@Cobs_ymfr[Catch[, c("y", "Season", "Fleet", "Area")]] <- Catch[, "Catch"]
 
+### Equilibrium catch prior to first year of model:
+Dfishery@Cinit_mfr <- array(Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfishery@nf, Dmodel@nr))
+
 
 #### Fishery data - CAL ----
 len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes")
@@ -217,6 +220,8 @@ stopifnot(length(unique(CAL[, "Len_class"])) == nrow(len_bin))
 Dfishery@CALobs_ymlfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dmodel@nl, Dfishery@nf, Dmodel@nr))
 
 Dfishery@CALobs_ymlfr[CAL[, c("y", "Season", "Len_class", "Fleet", "Area")]] <- CAL[, "N"]
+Dfishery@CALN_ymfr <- apply(Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum)
+Dfishery@CALN_ymfr <- pmin(Dfishery@CALN_ymfr, 50)
 
 Dfishery@fcomp_like <- "lognormal"
 
@@ -318,6 +323,9 @@ Dsurvey@samp_irs <- abind::abind(cpue_samp, index_samp, along = 1)
 # For CPUE, identify the fleet
 # For stock-specific indices, identify either B and SB
 Dsurvey@sel_i <- c(cpue_names$Fleet, index_names$Type)
+
+mutate(cpue_names, Fleet_mirror = fleet_names$FleetName[cpue_names$Fleet])
+cpue_names$Fleet
 
 # Assume sampling at beginning of the season
 Dsurvey@delta_i <- 0
