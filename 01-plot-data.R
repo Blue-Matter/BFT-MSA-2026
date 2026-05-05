@@ -83,18 +83,33 @@ g <- ggplot(Catch, aes(Year, Catch, fill = Fleet)) +
   guides(fill = guide_legend(ncol = 4, title = NULL))
 ggsave("figures/data/Cobs_seasonal.png", g, height = 6, width = 6)
 
-# What is Hist_Catch??
+# Spool-up catch at age (1950-1964, but time series already has catch during this time period)
 Hist_Catch <- readxl::read_excel(xlsx_file, sheet = "Hist_Catch")
+
+#g <- Hist_Catch %>%
+#  mutate(Year = Year + 0.25 * (Season - 1)) %>%
+#  mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
+#  arrange(Year) %>%
+#  filter(Age %in% seq(5, 40, 5)) %>%
+#  mutate(Age = paste("Age", Age) |> factor(paste("Age", seq(5, 40, 5)))) %>%
+#  ggplot(aes(Year, Catch)) +
+#  geom_line() +
+#  geom_point(aes(colour = factor(Season))) +
+#  labs(colour = "Season") +
+#  facet_grid(vars(Age), vars(Area), scales = "free_y")
 
 g <- Hist_Catch %>%
   mutate(Year = Year + 0.25 * (Season - 1)) %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
   arrange(Year) %>%
-  filter(Age %in% seq(5, 40, 5)) %>%
-  ggplot(aes(Year, Catch, colour = Age, group = Age)) +
-  geom_line() +
-  geom_point() +
-  facet_grid(vars(Age), vars(Area), scales = "free_y")
+  #filter(Age %in% seq(5, 40, 5)) %>%
+  #mutate(Age = paste("Age", Age) |> factor(paste("Age", seq(5, 40, 5)))) %>%
+  ggplot(aes(Year, Catch, fill = Age)) +
+  geom_col(width = 0.25, colour = "grey40", linewidth = 0.1) +
+  facet_wrap(vars(Area), scales = "free_y") +
+  labs(y = "Seasonal Catch") +
+  scale_fill_distiller()
+ggsave("figures/data/Cobs_spoolup.png", g, height = 4, width = 6)
 
 
 ## CAL ----
