@@ -15,6 +15,8 @@ dat <- new(
   Dtag = readRDS(file.path(dir_save, "Dtag.rds")),
   Dlabel = readRDS(file.path(dir_save, "Dlabel.rds"))
 )
+dat@Dmodel@prior <- dat@Dmodel@prior[-c(1:2)]
+dat@Dfishery@fcomp_like <- "multinomial"
 
 dat <- check_data(dat)
 
