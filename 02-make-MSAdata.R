@@ -77,7 +77,33 @@ prior_dist <- local({
   })
 })
 
-Dmodel@prior <- c(prior_recdev, prior_dist)
+# Recruitment distribution prior for stock 2 in GOM
+prior_recdist <- "dnorm(p$log_recdist_rs[1, 2], 0, 1.5, log = TRUE)"
+
+# Sample recdist prior, i.e. why sd = 1 seems appropriate for a mostly uninformative uniform prior away from bounds
+if (FALSE) {
+  nsamp <- 1e5
+  nr <- 2
+  set.seed(324)
+  x <- rnorm(nsamp * (nr-1), 0, 1.5) %>%
+    matrix(nsamp, nr-1)
+  recdist <- apply(cbind(x, 0), 1, softmax)
+
+  png("figures/recdist_prior.png", widht = 4, height = 5, units = "in", res = 400)
+  par(mfrow = c(2, 1))
+  hist(recdist[1, ], xlab = "Recruitment proportion WBFT in GOM", main = NULL)
+  hist(recdist[2, ], xlab = "Recruitment proportion WBFT in WATL", main = NULL)
+  dev.off()
+}
+
+Dmodel@prior <- c(prior_recdev, prior_dist, prior_recdist)
+
+
+
+
+
+
+
 
 #### Stock configurations with biological parameters (all fixed) ----
 Dstock <- new(
@@ -207,7 +233,7 @@ Dfishery@Cobs_ymfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dfishery@nf, Dmodel@nr))
 Dfishery@Cobs_ymfr[Catch[, c("y", "Season", "Fleet", "Area")]] <- Catch[, "Catch"]
 
 ### Equilibrium catch prior to first year of model:
-Dfishery@Cinit_mfr <- array(Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfishery@nf, Dmodel@nr))
+Dfishery@Cinit_mfr <- array(0.5 *Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfishery@nf, Dmodel@nr))
 
 
 #### Fishery data - CAL ----
@@ -233,6 +259,15 @@ stopifnot(all(apply(Dfishery@CALobs_ymlfr, 4, sum) > 0)) # Every fleet has lengt
 #### Indices of abundance: CPUE and fishery-independent indices ----
 Dsurvey <- new("Dsurvey")
 
+# From M3 trial spec document
+len_cat <- data.frame(
+  Name = c("US_RR_66_114", "US_RR_115_144", "US_RR_177", "US_RR_145", "US_RR_195", "US_RR_66_144"),
+  Lmin = c(66, 115, 177, 145, 195, 66),
+  Lmax = c(114, 144, Inf, Inf, Inf, 144)
+) %>%
+  mutate(bin_min = Dmodel@lmid[findInterval(Lmin, Dmodel@lmid)],
+         bin_max = Dmodel@lmid[findInterval(Lmax, Dmodel@lmid)])
+
 cpue <- readxl::read_excel(xlsx_file, sheet = "CPUE") %>%
   mutate(CV = as.numeric(CV), Index = as.numeric(Index))
 
@@ -251,7 +286,9 @@ cpue_names <- summarise(
 ) %>%
   mutate(Name2 = paste0("(", c(LETTERS, letters[1:4]), ") ", Name)) %>%
   filter(Name %in% cpue_use) %>%
-  mutate(i = match(Name, cpue_use))
+  mutate(i = match(Name, cpue_use)) %>%
+  left_join(select(len_cat, Name, bin_min, bin_max), by = "Name") %>%
+  mutate(Fleet2 = ifelse(is.na(bin_min), Fleet, paste0(Fleet, "_", bin_min, "_", bin_max)))
 
 cpue_value <- cpue %>%
   filter(Name %in% cpue_use) %>%
@@ -302,7 +339,7 @@ Dsurvey@unit_i <- rep("B", Dsurvey@ni) # All indices have biomass units
 # Identify area and stock that each index samples. 1 = TRUE for index i in area r for stock s
 cpue_samp <- array(0, c(max(cpue_names$i), nr, ns))
 cpue_names_matrix <- cpue_names %>%
-  select(!Name & !Name2) %>%
+  select(i, Area) %>%
   as.matrix()
 cpue_samp <- sapply2(1:ns, function(s) {
   cpue_samp <- array(0, c(max(cpue_names$i), nr))
@@ -320,16 +357,14 @@ index_samp[index_names_matrix[, c("i", "Area", "Stock")]] <- 1
 Dsurvey@samp_irs <- abind::abind(cpue_samp, index_samp, along = 1)
 
 # Selectivity of indices
-# For CPUE, identify the fleet
+# For CPUE, identify the fleet, also size range if necessary
 # For stock-specific indices, identify either B and SB
-Dsurvey@sel_i <- c(cpue_names$Fleet, index_names$Type)
+Dsurvey@sel_i <- c(cpue_names$Fleet2, index_names$Type)
 
 mutate(cpue_names, Fleet_mirror = fleet_names$FleetName[cpue_names$Fleet])
-cpue_names$Fleet
 
 # Assume sampling at beginning of the season
 Dsurvey@delta_i <- 0
-
 
 
 
@@ -400,7 +435,7 @@ Dfishery_SOO_genetic <- Dfishery_SOO_otolith <- Dfishery
 SOO_genetic <- read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) %>%
   filter(Region == "WATL") %>%
   mutate(
-    EBFT = Prob_West * N,
+    EBFT = N * (1 - Prob_West),
     WBFT = N - EBFT,
     a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
     r = match(Region, area_names$Name),
@@ -427,7 +462,7 @@ Dfishery_SOO_genetic@SCstdev_ymafrs[SOO_genetic[, c("y", "quarter", "a", "f", "r
 SOO_otolith <- read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) %>%
   filter(Region == "WATL") %>%
   mutate(
-    EBFT = Prob_West * N,
+    EBFT = N * (1 - Prob_West),
     WBFT = N - EBFT,
     a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
     r = match(Region, area_names$Name),
@@ -464,7 +499,7 @@ Dfishery_SOO_otolith@SCstdev_ymafrs[SOO_otolith[, c("y", "quarter", "a", "f", "r
 Dlabel <- new(
   "Dlabel",
   year = ModelYear,
-  season = 1:4,
+  season = paste("Season", 1:4),
   age = 1:Dmodel@na - 1,
   region = area_names$Name,
   stock = c("EBFT", "WBFT"),
