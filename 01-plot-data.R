@@ -21,6 +21,56 @@ xlsx_file <- file.path("data", "1_M3_data", "ICCAT_MSA_Data_2026Apr_v1.xlsx")
 # 3 - SATL + NATL + EATL
 # 4 - MED
 
+# Taken from BFT_Stock_Area_Assign.r
+
+#DEFINED STOCK AREA X (LON) AND Y (LAT) BOUNDARIES
+BFT1=list(x=c(-80,-88,-95,-100,-100,-85,-80), y=c(20,20,16.5,20,35,35,25))
+BFT2=list(x=c(-82.5,-75,-75,-65,-65,-55,-55,-70,-95,-88,-80,-80,-82.5),
+          y=c(30,30,25,25,20,20,0,0,16.5,20,20,25,30))
+BFT3=list(x=c(-70,-70,-60,-55,-55), y=c(45,55,55,50,45))
+BFT4=list(x=c(-70,-55,-55,-65,-65,-75,-75,-82.5,-85,-70,-55,-55,-60,-70,-80,-100,-100,-45,-45,-30,-30,-25,-25,-70),
+          y=c(0,0,20,20,25,25,30,30,35,45,45,50,55,55,50,60,80,80,10,10,5,5,-50,-50))
+BFT5=list(x=c(-30,-45,-45,-30), y=c(40,40,80,80))
+BFT6=list(x=c(-30,-45,-45,-30), y=c(10,10,40,40))
+BFT7=list(x=c(-30,45,45,15,15,-15,-15,-30,-30), y=c(80,80,50,50,60,60,50,50,80))
+BFT8=list(x=c(-30,-30,-15,-15,15,15,5,-5), y=c(40,50,50,60,60,50,50,40))
+BFT9=list(x=c(-30,-30,-5,-5,20,20,-25,-25,-30), y=c(10,40,40,30,30,-50,-50,5,5))
+BFT10=list(x=c(-5,-5,5,23,23), y=c(30,40,50,50,30))
+BFT11=list(x=c(23,45,45,23) ,y=c(50,50,30,30))
+
+#STOCK AREAS PLOTTED ON MAP
+png("figures/data/areas.png", height = 6, width = 6, res = 400, units = "in")
+
+maps::map('worldHires',col=c('gray'),fill=T,xlim=c(-100,45),ylim=c(-50,80))
+axis(1,at=seq(-100,45,5))
+axis(2,at=seq(-50,80,5))
+mtext('Longitude',1,line=3)
+mtext('Latitude',2,line=3)
+polygon(BFT1,border=1,lwd=2)
+text("GOM",x=-90,y=25,font=2,col=2)
+polygon(BFT2,border=1,lwd=2)
+text("WATL",x=-70,y=15,font=2,col=2)
+polygon(BFT3,border=1,lwd=2)
+text("WATL",x=-63,y=49,font=2,col=2)
+polygon(BFT4,border=1,lwd=2)
+text("WATL",x=-60,y=30,font=2,col=2)
+polygon(BFT5,border=1,lwd=2)
+text("EATL",x=-37.5,y=60,font=2,col=2)
+polygon(BFT6,border=1,lwd=2)
+text("EATL",x=-37.5,y=25,font=2,col=2)
+polygon(BFT7,border=1,lwd=2)
+text("EATL",x=-5,y=70,font=2,col=2)
+polygon(BFT8,border=1,lwd=2)
+text("EATL",x=-10,y=45,font=2,col=2)
+polygon(BFT9,border=1,lwd=2)
+text("EATL",x=-5,y=0,font=2,col=2)
+polygon(BFT10,border=1,lwd=2)
+text("MED",x=10,y=40,font=2,col=2)
+polygon(BFT11,border=1,lwd=2)
+text("MED",x=35,y=40,font=2,col=2)
+dev.off()
+
+
 ### Area names
 area_names <- readxl::read_excel(xlsx_file, sheet = "Areas") %>%
   select(Area, Name) %>%
