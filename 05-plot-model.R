@@ -192,13 +192,13 @@ g <- seli %>%
 
 
 # Recruitment
-png(file.path(dir_save, "recruitment.png"), height = 3, width = 8, units = "in", res = 400)
+png(file.path(dir_save, "recruitment.png"), height = 4, width = 8, units = "in", res = 400)
 par(mfrow = c(1, 2), mar = c(5, 4, 1, 1))
 plot_R(fit, s = 1)
 plot_R(fit, s = 2)
 dev.off()
 
-png(file.path(dir_save, "recdev.png"), height = 3, width = 8, units = "in", res = 400)
+png(file.path(dir_save, "recdev.png"), height = 4, width = 8, units = "in", res = 400)
 par(mfrow = c(1, 2), mar = c(5, 4, 1, 1))
 plot_Rdev(fit, s = 1)
 title("EBFT")
@@ -206,8 +206,8 @@ plot_Rdev(fit, s = 2)
 title("WBFT")
 dev.off()
 
-png(file.path(dir_save, "SRR.png"), height = 3, width = 8, units = "in", res = 400)
-par(mfrow = c(1, 2))
+png(file.path(dir_save, "SRR.png"), height = 4, width = 8, units = "in", res = 400)
+par(mfrow = c(1, 2), mar = c(5, 4, 1, 1))
 plot_SRR(fit, s = 1)
 title("EBFT")
 plot_SRR(fit, s = 2)
@@ -219,7 +219,6 @@ png(file.path(dir_save, "recdist.png"), height = 4, width = 4, units = "in", res
 par(mfrow = c(1, 1), mar = c(5, 4, 1, 1))
 plot_recdist(fit)
 dev.off()
-
 
 # Movement
 png(file.path(dir_save, "mov_EBFT.png"), height = 6, width = 8, units = "in", res = 400)
@@ -235,17 +234,17 @@ dev.off()
 # SSB
 png(file.path(dir_save, "SSB_area.png"), height = 6, width = 8, units = "in", res = 400)
 par(mar = c(5, 4, 1, 1))
-plot_S(fit, by = "stock", facet_free = FALSE)
+plot_S(fit, by = "stock", facet_free = FALSE, ylab = "Spawning stock biomass")
 dev.off()
 
 png(file.path(dir_save, "SSB_stock_compare.png"), height = 4, width = 8, units = "in", res = 400)
 par(mar = c(5, 4, 1, 1))
-plot_S(fit, by = "region", facet_free = FALSE)
+plot_S(fit, by = "region", facet_free = FALSE, ylab = "Spawning stock biomass")
 dev.off()
 
 png(file.path(dir_save, "SSB_stock_independent.png"), height = 4, width = 8, units = "in", res = 400)
 par(mar = c(5, 4, 1, 1))
-plot_S(fit, by = "region", facet_free = TRUE)
+plot_S(fit, by = "region", facet_free = TRUE, ylab = "Spawning stock biomass")
 dev.off()
 
 # Calculate regional exploitation rate
