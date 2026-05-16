@@ -288,7 +288,7 @@ g <- etag %>%
   facet_grid(vars(paste("Season", Quarter)), vars(From_i)) +
   geom_line() +
   geom_point(aes(size = Nfr)) +
-  labs(x = "To", y = "Proportion", size = "N", shape = "Age", linetype = "Age") +
+  labs(x = "Destination", y = "Proportion", size = "N", shape = "Age", linetype = "Age") +
   theme(legend.position = 'bottom',
         panel.grid.minor = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
