@@ -32,7 +32,7 @@ parameters_start <- list(
   log_recdist_rs = log_recdist_rs,
   R0_s = c(20000, 10000),
   h_s = c(0.99, 0.6),
-  log_sdr_s = log(c(0.5, 0.5))
+  log_sdr_s = log(c(0.5, 0.25))
 )
 
 #### Fixing parameters ----
@@ -112,11 +112,14 @@ fit <- fit_MSA(
   pars$p,
   pars$map,
   pars$random,
-  run_model = FALSE,
+  run_model = TRUE,
   do_sd = TRUE
 )
 tictoc::toc()
-saveRDS(fit, file = "model_output/fit_04.30.2026.rds")
 
-fit <- readRDS("model_output/fit_04.30.2026.rds")
-report(fit, dir = "model_output", filename = "report_04.30.2026")
+#file_out <- "fit_04.30.2026.rds"
+file_out <- "fit_05.16.2026.rds"
+saveRDS(fit, file.path("model_output", file_out))
+
+fit <- readRDS(file.path("model_output", file_out))
+report(fit, dir = "model_output", filename = "report_05.16.2026")
