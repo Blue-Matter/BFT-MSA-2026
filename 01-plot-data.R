@@ -133,7 +133,7 @@ fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
 Catch <- readxl::read_excel(xlsx_file, sheet = "Catch") %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name),
          Fleet = factor(fleet_names$FleetName[Fleet], fleet_names$FleetName))
-range(Catch$Area)
+unique(Catch$Area)
 range(Catch$Season)
 range(Catch$Year)
 
@@ -221,7 +221,7 @@ g <- CAL %>%
   guides(colour = guide_legend(ncol = 2), shape = guide_legend(ncol = 2))
 ggsave("figures/data/ML.png", g, height = 8, width = 6)
 
-# Aggregate length comp
+# Aggregate length comp by area
 g <- CAL %>%
   summarise(N = sum(N), .by = c(Bin, Area, Fleet)) %>%
   mutate(p = N/sum(N), .by = c(Area, Fleet)) %>%
@@ -234,6 +234,22 @@ g <- CAL %>%
              scales = "free_y") +
   theme(legend.position = "bottom")
 ggsave("figures/data/CAL_aggregate.png", g, height = 8, width = 6)
+
+
+g <- CAL %>%
+  summarise(N = sum(N), .by = c(Bin, Fleet)) %>%
+  mutate(p = N/sum(N), .by = Fleet) %>%
+  ggplot(aes(Bin, p)) +
+  geom_area(fill = "grey80", colour = "black") +
+  geom_point() +
+  labs(x = "Length bin (cm)", y = "Proportion") +
+  facet_wrap(vars(Fleet),
+             ncol = 3,
+             scales = "free_y") +
+  theme(legend.position = "bottom")
+ggsave("figures/data/CAL_aggregate2.png", g, height = 8, width = 6)
+
+
 
 # Fishery CPUE
 cpue <- readxl::read_excel(xlsx_file, sheet = "CPUE") %>%
