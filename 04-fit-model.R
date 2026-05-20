@@ -102,6 +102,40 @@ pars <- make_parameters(
 #x[, , 1] <- -1000
 #x[, 1, ] <- 1000
 
+#### Add selectivity prior?
+add_sel_prior <- TRUE
+if (add_sel_prior) {
+  #### Make fishery and rec dist. sel priors ----
+  prior_sel <- lapply(1:dat@Dfishery@nf, function(f) {
+
+    # Uninformative prior for length of full selectivity
+    p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.5, log = TRUE)")
+
+    #x <- rnorm(1e5, 0, 1.5)
+    #hist(plogis(x))
+
+    # Ascending limb with lognormal SD = 0.5
+    start_p2 <- round(pars$p$sel_pf[2, f], 2)
+    p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.5, log = TRUE)")
+
+    #x <- rnorm(1e5, 0, 0.5)
+    #hist(exp(x))
+
+    # Descending limb with lognormal SD = 0.5
+    if (grepl("dome", dat@Dfishery@sel_f[f])) {
+      start_p3 <- round(pars$p$sel_pf[3, f], 2)
+      p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.5, log = TRUE)")
+    } else {
+      p3 <- NULL
+    }
+
+    c(p1, p2, p3)
+  }) %>%
+    unlist()
+
+  dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_sel)
+}
+
 #mov <- conv_mov(pars$p$mov_x_marrs[1, , , , 1], pars$p$mov_g_ymars[1, 1, , , 1], pars$p$mov_v_ymas[1, 1, , 1])
 #mov <- conv_mov(x, pars$p$mov_g_ymars[1, 1, , , 2], pars$p$mov_v_ymas[1, 1, , 2])
 #mov[1, , ]
@@ -117,9 +151,70 @@ fit <- fit_MSA(
 )
 tictoc::toc()
 
-#file_out <- "fit_04.30.2026.rds"
-file_out <- "fit_05.16.2026.rds"
+file_out <- "fit_05.17.2026.rds"
 saveRDS(fit, file.path("model_output", file_out))
 
 fit <- readRDS(file.path("model_output", file_out))
-report(fit, dir = "model_output", filename = "report_05.16.2026")
+report(fit, dir = "model_output", filename = "report_05.17.2026")
+
+# A with WBFT SSB prior
+datA_Wprior <- dat
+datA_Wprior@Dmodel@prior <- c(
+  datA_Wprior@Dmodel@prior,
+  paste0("dnorm(log(sum(S_yrs[", match(2021, datA_Wprior@Dlabel@year), ", , 2])), log(22000), 0.18, log = TRUE)")
+)
+tictoc::tic()
+fit <- fit_MSA(
+  datA_Wprior,
+  pars$p,
+  pars$map,
+  pars$random,
+  run_model = TRUE,
+  do_sd = TRUE
+)
+tictoc::toc()
+
+
+file_out <- "fitA_Wprior_05.17.2026.rds"
+saveRDS(fit, file.path("model_output", file_out))
+
+fit <- readRDS(file.path("model_output", file_out))
+report(fit, dir = "model_output", filename = "reportA_Wprior_05.17.2026")
+
+
+# B parameters (older maturity, lower M)
+datB <- new(
+  "MSAdata",
+  Dmodel = readRDS(file.path(dir_save, "Dmodel.rds")),
+  Dstock = readRDS(file.path(dir_save, "Dstock_B.rds")),
+  Dfishery = readRDS(file.path(dir_save, "Dfishery.rds")),
+  Dsurvey = readRDS(file.path(dir_save, "Dsurvey.rds")),
+  Dtag = readRDS(file.path(dir_save, "Dtag.rds")),
+  Dlabel = readRDS(file.path(dir_save, "Dlabel.rds"))
+)
+
+datB <- check_data(datB)
+
+parsB <- make_parameters(
+  datB,
+  start = parameters_start,
+  map = map,
+  est_mov = "gravity_fixed"
+)
+
+tictoc::tic()
+fit <- fit_MSA(
+  datB,
+  parsB$p,
+  parsB$map,
+  parsB$random,
+  run_model = TRUE,
+  do_sd = TRUE
+)
+tictoc::toc()
+
+file_out <- "fitB_05.17.2026.rds"
+saveRDS(fit, file.path("model_output", file_out))
+
+fit <- readRDS(file.path("model_output", file_out))
+report(fit, dir = "model_output", filename = "reportB_05.17.2026")
