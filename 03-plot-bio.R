@@ -2,7 +2,7 @@
 
 library(tidyverse)
 
-dir_save <- "model_input/04.30.2026"
+dir_save <- "model_input/05.20.2026"
 
 Dstock_A <- readRDS(file.path(dir_save, "Dstock_A.rds"))
 Dstock_B <- readRDS(file.path(dir_save, "Dstock_B.rds"))
@@ -26,6 +26,7 @@ g <- left_join(len_age, sdlen_age) %>%
               linetype = NA,
               alpha = 0.25) +
   expand_limits(y = 0) +
+  guides(fill = "none", colour = "none") +
   labs(y = "Length")
 ggsave("figures/bio/length-age.png", g, width = 5, height = 3)
 

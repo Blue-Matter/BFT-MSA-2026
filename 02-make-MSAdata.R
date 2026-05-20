@@ -146,6 +146,10 @@ Dstock@len_ymas <- sapply(1:Dmodel@ns, function(s) {
   }, simplify = "array")
 }, simplify = "array")
 
+## Override May 20, 2026:
+## Use WBFT growth curve for both stocks
+Dstock@len_ymas[, , , 1] <- Dstock@len_ymas[, , , 2]
+
 Dstock@sdlen_ymas <- 0.06 * Dstock@len_ymas + 5.84
 
 # Stock weight at age
@@ -181,13 +185,38 @@ Dstock_A@mat_yas <- local({
 })
 
 Dstock_A@M_yas <- local({
-  M_high <- rep(NA_real_, Dmodel@na)
-  M_high[0:14 + 1] <- c(0.38, 0.38, 0.3, 0.24, 0.2, 0.18, 0.16, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.1) # age 0-14
-  M_high[15:25 + 1] <- 0.1
-  M_high[seq(26, Dmodel@na)] <- 0.1
 
-  array(M_high, c(Dmodel@na, Dmodel@ns, Dmodel@ny)) %>%
-    aperm(c(3, 1, 2))
+  if (FALSE) {
+    ## This is from M3, which did not include age zero
+    M_high <- rep(NA_real_, Dmodel@na)
+    M_high[0:14 + 1] <- c(0.38, 0.38, 0.3, 0.24, 0.2, 0.18, 0.16, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.1) # age 0-14
+    M_high[15:25 + 1] <- 0.1
+    M_high[seq(26, Dmodel@na)] <- 0.1
+
+    array(M_high, c(Dmodel@na, Dmodel@ns, Dmodel@ny)) %>%
+      aperm(c(3, 1, 2))
+  } else {
+
+    # From SS3 where reference M = 0.1 at age 20
+    # Provided by A. Kimoto, May 20, 2026
+    M_high <- array(NA_real_, c(Dmodel@ny, Dmodel@na, Dmodel@ns))
+
+    # EBFT
+    M_high[, 1:16, 1] <- matrix(
+      c(0.50, 0.32, 0.27, 0.22, 0.19, 0.17, 0.15, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.11, 0.10),
+      Dmodel@ny, 16, byrow = TRUE
+    )
+
+    # WBFT
+    M_high[, 1:16, 2] <- matrix(
+      c(0.39, 0.33, 0.29, 0.25, 0.21, 0.19, 0.17, 0.15, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.10),
+      Dmodel@ny, 16, byrow = TRUE
+    )
+
+    M_high[, seq(17, Dmodel@na), ] <- 0.1
+
+    return(M_high)
+  }
 })
 
 # Object B
@@ -517,7 +546,7 @@ Dlabel <- new(
 
 
 #### Save objects
-dir_save <- "model_input/04.30.2026"
+dir_save <- "model_input/05.20.2026"
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))
