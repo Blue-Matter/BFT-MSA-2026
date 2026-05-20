@@ -1,15 +1,31 @@
 
 library(multiSA)
 library(tidyverse)
-fit <- readRDS("model_output/fit_04.30.2026.rds")
+library(randtests)
+
+fit <- readRDS("model_output/fit_05.17.2026.rds")
 
 dat <- get_MSAdata(fit)
 
-dir_save <- file.path("figures", "fit")
+dir_save <- file.path("figures", "fit", "05.17")
 
 # Aggregate fit to all indices
 index_all <- lapply(1:dat@Dsurvey@ni, function(i) plot_index(fit, i = i, zoom = TRUE, figure = FALSE)) %>%
   bind_rows() %>%
+  mutate(resid = log(obs/pred)) %>%
+  mutate(name = factor(name, dat@Dlabel@index))
+
+run_test <- data.frame(
+  name = dat@Dlabel@index,
+  pass = sapply(dat@Dlabel@index, function(i) {
+    p.value <- filter(index_all, name == i) %>%
+      pull(resid) %>%
+      randtests::runs.test(alternative = "left.sided", threshold = 0, plot = FALSE) %>%
+      getElement("p.value")
+    ifelse(p.value > 0.05, "Pass", "Fail")
+  })
+) %>%
+  mutate(col = ifelse(pass == "Pass", "black", "red")) %>%
   mutate(name = factor(name, dat@Dlabel@index))
 
 g <- ggplot(index_all, aes(year, obs)) +
@@ -21,43 +37,95 @@ g <- ggplot(index_all, aes(year, obs)) +
   labs(x = "Year", y = "Index")
 ggsave(file.path(dir_save, "index_fit.png"), g, width = 6, height = 8)
 
-g <- ggplot(index_all, aes(year, log(obs/pred))) +
+g <- ggplot(index_all, aes(year, resid)) +
+  geom_label(data = run_test, x = -Inf, y = Inf, hjust = "inward", vjust = "inward", aes(colour = col, label = pass)) +
   geom_point(size = 0.75) +
   geom_line(linewidth = 0.1) +
   geom_hline(yintercept = 0, linetype = 2) +
   facet_wrap(vars(name), ncol = 3, scales = "free_y") +
+  scale_colour_identity() +
   labs(x = "Year", y = "log residual")
 ggsave(file.path(dir_save, "index_resid.png"), g, width = 6, height = 8)
 
 # Stock of origin fit
 aa <- c("0-4", "5-8", "9+")
 soo <- lapply(1:3, function(a) {
-  plot_SC(fit, r = 2, a = a, prop = TRUE, figure = FALSE)
+  lapply(2:3, function(r) {
+    lapply(1:2, function(ff) {
+      plot_SC(fit, r = r, ff = ff, a = a, prop = TRUE, figure = FALSE)
+    }) %>%
+      bind_rows()
+  }) %>%
+    bind_rows()
 }) %>%
   bind_rows() %>%
-  mutate(Age = .env$aa[.data$aa])
+  mutate(Age = .env$aa[.data$aa],
+         region = factor(region, c("WATL", "EATL")),
+         Fleet = ifelse(ff == 1, "Otolith", "Genetic"))
 
 g <- soo %>%
   filter(stock == "WBFT") %>%
   filter(!is.na(pred), pred > 0) %>%
   mutate(Age = paste("Age", Age)) %>%
-  ggplot(aes(year, obs)) +
-  geom_line(aes(y = pred), colour = 'red') +
-  geom_line() +
+  ggplot(aes(year, obs, colour = Fleet, fill = Fleet, shape = Fleet)) +
+  geom_line(linewidth = 0.1) +
+  geom_line(aes(y = pred), linewidth = 0.25, colour = "black") +
+  #geom_line(aes(y = pred), colour = 'red') +
   geom_point() +
   facet_grid(vars(region), vars(Age)) +
   coord_cartesian(ylim = c(0, 1)) +
+  scale_shape_manual(values = c(1, 8)) +
   #coord_cartesian(xlim = c(1970, 2025)) +
-  labs(x = "Year", y = "Proportion WBFT")
-ggsave(file.path(dir_save, "SOO_fit.png"), g, height = 3, width = 6)
+  labs(x = "Year", y = "Proportion WBFT", fill = NULL, shape = NULL, colour = NULL) +
+  theme(legend.position = "bottom")
+ggsave(file.path(dir_save, "SOO_fit.png"), g, height = 5, width = 8)
+
+
+SOO_resid <- structure(
+  residuals(fit, vars = "SC_ymafrs")$SC_ymafrs,
+  dimnames = list(
+    Year = dat@Dlabel@year,
+    Season = 1:dat@Dmodel@nm,
+    Age = aa,
+    Fleet = c("Otolith", "Genetic"),
+    Region = dat@Dlabel@region,
+    Stock = dat@Dlabel@stock
+  )
+) %>%
+  reshape2::melt()
+g <- SOO_resid %>%
+  filter(Region %in% c("WATL", "EATL")) %>%
+  #filter(!is.na(value)) %>%
+  filter(Stock == "WBFT") %>%
+  mutate(Age = paste("Age", Age),
+         Fleet = factor(Fleet, c("Genetic", "Otolith")),
+         year = Year + 0.25 * (Season - 1)) %>%
+  ggplot(aes(year, value, shape = Fleet, colour = Fleet)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = 2) +
+  scale_shape_manual(values = c(1, 8)) +
+  facet_grid(vars(Region), vars(Age)) +
+  labs(x = "Year", y = "SOO residual") +
+  theme(legend.position = "bottom")
+ggsave(file.path(dir_save, "SOO_residual.png"), g, height = 5, width = 8)
+
 
 # Tags
-png(file.path(dir_save, "tag_EBFT_fit.png"), height = 5, width = 6, res = 400, units = "in")
-plot_tagmov(fit, s = 1)
+png(file.path(dir_save, "tag_EBFT_fit_a1.png"), height = 5, width = 6, res = 400, units = "in")
+plot_tagmov(fit, s = 1, aa = 1)
+dev.off()
+
+png(file.path(dir_save, "tag_EBFT_fit_a2.png"), height = 5, width = 6, res = 400, units = "in")
+plot_tagmov(fit, s = 1, aa = 2)
+dev.off()
+
+png(file.path(dir_save, "tag_EBFT_fit_a3.png"), height = 5, width = 6, res = 400, units = "in")
+plot_tagmov(fit, s = 1, aa = 3)
 dev.off()
 
 png(file.path(dir_save, "tag_WBFT_fit.png"), height = 5, width = 6, res = 400, units = "in")
-plot_tagmov(fit, s = 2)
+plot_tagmov(fit, s = 2, aa = 3)
 dev.off()
 
 # Mean length
@@ -82,7 +150,7 @@ g <- mlen %>%
   facet_wrap(vars(fleet), ncol = 3) +
   expand_limits(y = 0) +
   theme(legend.position = "bottom") +
-  labs(x = "Year", y = "Mean length", region = NULL, colour = NULL)
+  labs(x = "Year", y = "Mean length", fill = NULL, colour = NULL)
 ggsave(file.path(dir_save, "mlen.png"), g, height = 8, width = 6)
 
 
@@ -120,7 +188,7 @@ g <- CAL_agg %>%
   geom_area(fill = "grey80", linewidth = 0.1, colour = "black") +
   geom_point() +
   geom_line(aes(y = pred), linewidth = 1.25, colour = "mediumseagreen") +
-  facet_wrap(vars(fleet), ncol = 3) +
+  facet_wrap(vars(fleet), ncol = 3, scales = "free_y") +
   labs(x = "Length Bin", y = "Proportion")
 ggsave(file.path(dir_save, "CAL_agg_fit.png"), g, height = 8, width = 6)
 
@@ -134,7 +202,9 @@ CAL_resid <- structure(residuals(fit, vars = "CALobs_ymlfr")$CALobs_ymlfr,
     Region = dat@Dlabel@region
   )) %>%
   reshape2::melt() %>%
-  mutate(Fleet = factor(Fleet, dat@Dlabel@fleet))
+  mutate(Fleet = factor(Fleet, dat@Dlabel@fleet)) %>%
+  filter(!is.na(value)) %>%
+  mutate(value = pmin(value, 5) %>% pmax(-5))
 
 g <- ggplot(CAL_resid) +
   geom_histogram(fill = "grey60", colour = "black", linewidth = 0.1,
@@ -237,6 +307,11 @@ par(mar = c(5, 4, 1, 1))
 plot_S(fit, by = "stock", facet_free = FALSE, ylab = "Spawning stock biomass")
 dev.off()
 
+png(file.path(dir_save, "SSB_area_prop.png"), height = 6, width = 8, units = "in", res = 400)
+par(mar = c(5, 4, 1, 1))
+plot_S(fit, by = "stock", facet_free = FALSE, prop = TRUE, ylab = "Spawning stock biomass")
+dev.off()
+
 png(file.path(dir_save, "SSB_stock_compare.png"), height = 4, width = 8, units = "in", res = 400)
 par(mar = c(5, 4, 1, 1))
 plot_S(fit, by = "region", facet_free = FALSE, ylab = "Spawning stock biomass")
@@ -247,31 +322,33 @@ par(mar = c(5, 4, 1, 1))
 plot_S(fit, by = "region", facet_free = TRUE, ylab = "Spawning stock biomass")
 dev.off()
 
+png(file.path(dir_save, "B_area.png"), height = 6, width = 8, units = "in", res = 400)
+par(mar = c(5, 4, 1, 1))
+plot_B(fit, by = "stock", facet_free = FALSE)
+dev.off()
+
+
 # Calculate regional exploitation rate
 u <- local({
-  CB_ymr <- apply(fit@report$CB_ymfrs, c(1, 2, 4), sum)
-  B_ymr <- apply(fit@report$B_ymrs, 1:3, sum)
-  Year = multiSA:::make_yearseason(dat@Dlabel@year, 4)
-  U_yrs <- multiSA:::collapse_yearseason(CB_ymr/B_ymr) %>%
-    structure(dimnames = list(Year = Year, Region = dat@Dlabel@region))
+  CB_ymrs <- apply(fit@report$CB_ymfrs, c(1, 2, 4, 5), sum)
+  B_ymrs <- fit@report$B_ymrs
+  Year <- multiSA:::make_yearseason(dat@Dlabel@year, 4)
+  U_ymrs <- CB_ymrs/B_ymrs
+  U_ymrs[CB_ymrs < 1e-8] <- 0
+  U_yrs <- multiSA:::collapse_yearseason(U_ymrs) %>%
+    structure(dimnames = list(Year = Year, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock))
   reshape2::melt(U_yrs, value.name = "Ex")
 }) %>%
   mutate(Season = 4 * (Year - floor(Year)) + 1)
 
-#g <- ggplot(u, aes(Year, Ex)) +
-#  facet_wrap(vars(Region)) +
-#  geom_line(linewidth = 0.2) +
-#  geom_point(alpha = 0.5, size = 0.75, aes(colour = factor(Season))) +
-#  labs(y = "Seasonal Catch/Biomass", colour = "Season")
-#ggsave(file.path(dir_save, "regional_exploitation.png"), g, height = 4, width = 5)
-
 g <- u %>%
   mutate(Season = paste("Season", Season)) %>%
-  ggplot(aes(floor(Year), Ex)) +
-  facet_grid(vars(Season), vars(Region)) +
+  ggplot(aes(floor(Year), Ex, colour = Stock)) +
+  facet_grid(vars(Region), vars(Season), scales = "free") +
   geom_line() +
   #geom_point(alpha = 0.5, size = 0.75, aes(colour = factor(Season))) +
-  labs(x = "Year", y = "Catch/Biomass")
+  labs(x = "Year", y = "Seasonal Catch/Biomass") +
+  theme(legend.position = "bottom")
 ggsave(file.path(dir_save, "regional_exploitation.png"), g, height = 4, width = 6)
 
 # Depletion
@@ -285,5 +362,9 @@ S_S0 <- local({
 
 g <- ggplot(S_S0, aes(Year, dep, colour = Stock)) +
   geom_line() +
+  expand_limits(y = 0) +
   labs(y = expression(S/S[0]))
 ggsave(file.path(dir_save, "depletion.png"), g, height = 3, width = 5)
+
+# Apical fishing mortality by stock
+plot_Fstock(fit, s = 1:2, 'season')
