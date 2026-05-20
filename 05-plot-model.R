@@ -322,11 +322,56 @@ par(mar = c(5, 4, 1, 1))
 plot_S(fit, by = "region", facet_free = TRUE, ylab = "Spawning stock biomass")
 dev.off()
 
+# Spawning biomass by season
+SB_season <- local({
+  N_ymars <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ]
+  mat_ymars <- array(
+    dat@Dstock@mat_yas,
+    c(dat@Dmodel@ny, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nm, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 4, 2, 5, 3))
+  fec_ymars <- array(
+    dat@Dstock@swt_ymas,
+    c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 2, 3, 5, 4))
+
+  S_ymrs <- apply(N_ymars * mat_ymars * fec_ymars, c(1, 2, 4, 5), sum) %>%
+    structure(dimnames = list(
+      year = dat@Dlabel@year,
+      season = dat@Dlabel@season,
+      region = dat@Dlabel@region,
+      stock = dat@Dlabel@stock
+    ))
+  reshape2::melt(S_ymrs, value.name = "S")
+})
+g <- SB_season %>%
+  ggplot(aes(year, S, fill = stock)) +
+  geom_col(width = 1) +
+  facet_grid(vars(region), vars(season)) +
+  labs(x = "Year", y = "Mature biomass", fill = NULL) +
+  scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave(file.path(dir_save, "SSB_area_season.png"), g, height = 5, width = 6)
+
+
+
+# Biomass by season
 png(file.path(dir_save, "B_area.png"), height = 6, width = 8, units = "in", res = 400)
 par(mar = c(5, 4, 1, 1))
 plot_B(fit, by = "stock", facet_free = FALSE)
 dev.off()
 
+g <- plot_B(fit, by = "stock", facet_free = FALSE, figure = FALSE) %>%
+  mutate(season = 4 * (year - floor(year)) + 1) %>%
+  mutate(season = paste("Season", season)) %>%
+  ggplot(aes(floor(year), B, fill = stock)) +
+  geom_col(width = 1) +
+  facet_grid(vars(region), vars(season)) +
+  labs(x = "Year", y = "Total biomass", fill = NULL) +
+  scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+  theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave(file.path(dir_save, "B_area_season.png"), g, height = 5, width = 6)
 
 # Calculate regional exploitation rate
 u <- local({
@@ -351,6 +396,9 @@ g <- u %>%
   theme(legend.position = "bottom")
 ggsave(file.path(dir_save, "regional_exploitation.png"), g, height = 4, width = 6)
 
+# Apical fishing mortality by stock
+plot_Fstock(fit, s = 1:2, 'season')
+
 # Depletion
 S_S0 <- local({
   S_ys <- apply(fit@report$S_yrs, c(1, 3), sum)
@@ -360,11 +408,10 @@ S_S0 <- local({
   reshape2::melt(dep, value.name = "dep")
 })
 
-g <- ggplot(S_S0, aes(Year, dep, colour = Stock)) +
+g <- ggplot(S_S0, aes(Year, dep, linetype = Stock)) +
   geom_line() +
+  coord_cartesian(ylim = c(0, 1.5)) +
   expand_limits(y = 0) +
   labs(y = expression(S/S[0]))
 ggsave(file.path(dir_save, "depletion.png"), g, height = 3, width = 5)
 
-# Apical fishing mortality by stock
-plot_Fstock(fit, s = 1:2, 'season')
