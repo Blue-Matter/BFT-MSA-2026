@@ -386,15 +386,30 @@ u <- local({
 }) %>%
   mutate(Season = 4 * (Year - floor(Year)) + 1)
 
+u_eq <- local({
+  CB_mrs <- apply(fit@report$initCB_mfrs, c(1, 3, 4), sum)
+  N_mars <- sapply2(1:dat@Dmodel@ns, function(s) fit@report$initNPR_mars[, , , s] * fit@report$initReq_s[s])
+  B_mrs <- sapply2(1:dat@Dmodel@nr, function(r) N_mars[, , r, ] * dat@Dstock@swt_ymas[1, , , ]) %>%
+    apply(c(1, 4, 3), sum)
+
+  U_mrs <- CB_mrs/B_mrs
+  U_mrs[CB_mrs < 1e-8] <- 0
+
+  structure(U_mrs, dimnames = list(Season = dat@Dlabel@season, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock)) %>%
+    reshape2::melt(value.name = "Ex")
+}) %>%
+  mutate(Year = min(u$Year) - 1)
+
 g <- u %>%
   mutate(Season = paste("Season", Season)) %>%
   ggplot(aes(floor(Year), Ex, colour = Stock)) +
   facet_grid(vars(Region), vars(Season), scales = "free") +
   geom_line() +
+  geom_point(data = u_eq) +
   #geom_point(alpha = 0.5, size = 0.75, aes(colour = factor(Season))) +
   labs(x = "Year", y = "Seasonal Catch/Biomass") +
   theme(legend.position = "bottom")
-ggsave(file.path(dir_save, "regional_exploitation.png"), g, height = 4, width = 6)
+ggsave(file.path(dir_save, "regional_exploitation.png"), g, height = 5, width = 6)
 
 # Apical fishing mortality by stock
 plot_Fstock(fit, s = 1:2, 'season')
