@@ -173,16 +173,18 @@ wrapper_fn <- function(x = 1, Design) {
     pars$p,
     pars$map,
     pars$random,
-    run_model = TRUE,
+    run_model = FALSE,
     do_sd = TRUE
   )
   tictoc::toc()
 
-  file_out <- paste0("fit_", Design$model_name[x], ".rds")
+  file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
 
   #fit <- readRDS(file.path("model_output", file_out))
-  report(fit, dir = "model_output", filename = paste0("report_", Design$model_name[x]))
+  report(fit,
+         name = Design$model_name[x],
+         dir = "model_output", filename = paste0("report_", Design$output_name[x]))
 
   return(invisible(fit))
 }
