@@ -3,11 +3,14 @@ library(multiSA)
 library(tidyverse)
 library(randtests)
 
-fit <- readRDS("model_output/fit_05.17.2026.rds")
+#fit <- readRDS("model_output/fit_reference_05.20.2026.rds")
+#dir_save <- file.path("figures", "fit", "05.20")
+
+fit <- readRDS("model_output/fit_Wprior_05.20.2026.rds")
+dir_save <- file.path("figures", "fit", "05.20_Wprior")
+if (!dir.exists(dir_save)) dir.create(dir_save)
 
 dat <- get_MSAdata(fit)
-
-dir_save <- file.path("figures", "fit", "05.17")
 
 # Aggregate fit to all indices
 index_all <- lapply(1:dat@Dsurvey@ni, function(i) plot_index(fit, i = i, zoom = TRUE, figure = FALSE)) %>%
@@ -129,6 +132,10 @@ plot_tagmov(fit, s = 2, aa = 3)
 dev.off()
 
 # Mean length
+panel_factor <- outer(dat@Dlabel@fleet, dat@Dlabel@region, function(i, j) paste(i, j, sep = ": ")) %>%
+  t() %>%
+  as.character()
+
 mlen <- lapply(1:dat@Dfishery@nf, function(f) {
   lapply(1:dat@Dmodel@nr, function(r) {
     x <- plot_CAL(fit, f = f, r = r, do_mean = TRUE, figure = FALSE)
@@ -137,18 +144,20 @@ mlen <- lapply(1:dat@Dfishery@nf, function(f) {
   }) %>%
     bind_rows()
 }) %>%
-  bind_rows()
-
-g <- mlen %>%
-  filter(!is.na(pred)) %>%
+  bind_rows() %>%
   mutate(fleet = factor(fleet, dat@Dlabel@fleet)) %>%
   mutate(region = factor(region, dat@Dlabel@region)) %>%
   arrange(year) %>%
-  ggplot(aes(year, pred, fill = region, colour = region)) +
-  geom_point(size = 1, shape = 21, colour = 'grey60', alpha = 0.75, aes(y = obs)) +
-  geom_line() +
-  facet_wrap(vars(fleet), ncol = 3) +
-  expand_limits(y = 0) +
+  mutate(panel = paste(fleet, region, sep = ": ") %>% factor(panel_factor))
+
+g <- mlen %>%
+  filter(!is.na(pred)) %>%
+  ggplot(aes(year, pred)) +
+  geom_point(alpha = 0.5, shape = 1, aes(y = obs)) +
+  geom_line(data = filter(mlen, !is.na(obs)), linewidth = 0.1, aes(y = obs)) +
+  geom_line(colour = "red") +
+  facet_wrap(vars(panel), ncol = 4) +
+  #expand_limits(y = 0) +
   theme(legend.position = "bottom") +
   labs(x = "Year", y = "Mean length", fill = NULL, colour = NULL)
 ggsave(file.path(dir_save, "mlen.png"), g, height = 8, width = 6)
