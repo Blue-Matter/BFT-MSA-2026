@@ -9,10 +9,10 @@ library(parallel)
 Design <- data.frame(
   initC_scalar = c(0.5, 0.5, 1), # Relative to first year catch
   SSB_prior = c(FALSE, TRUE, FALSE),
-  output_name = c("reference_05.20.2026", "Wprior_05.20.2026", "highinitC_05.20.2026"),
+  output_name = c("reference_05.22.2026", "Wprior_05.22.2026", "highinitC_05.22.2026"),
   model_name = c("Reference", "WBFT SSB prior", "High eq. catch")
 )
-readr::write_csv(Design, "tables/Design_05.20.2026.csv")
+readr::write_csv(Design, "tables/Design_05.22.2026.csv")
 
 # Wrapper function that will fit a model for each row in the Design data frame ----
 wrapper_fn <- function(x = 1, Design) {
@@ -35,13 +35,6 @@ wrapper_fn <- function(x = 1, Design) {
   #dat@Dmodel@prior <- dat@Dmodel@prior[-c(1:2)]
   dat@Dfishery@fcomp_like <- "multinomial"
 
-  # With WBFT SSB prior
-  if (Design$SSB_prior[x]) {
-    dat@Dmodel@prior <- c(
-      dat@Dmodel@prior,
-      paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.01, log = TRUE)")
-    )
-  }
 
   # Rescale equilibrium catch
   dat@Dfishery@Cinit_mfr <- array(
@@ -62,7 +55,7 @@ wrapper_fn <- function(x = 1, Design) {
 
   parameters_start <- list(
     log_recdist_rs = log_recdist_rs,
-    R0_s = c(20000, 10000),
+    R0_s = c(10000, 2000),
     h_s = c(0.99, 0.6),
     log_sdr_s = log(c(0.5, 0.5))
   )
@@ -163,20 +156,25 @@ wrapper_fn <- function(x = 1, Design) {
     dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_sel)
   }
 
+  # With WBFT SSB prior
+  if (Design$SSB_prior[x]) {
+    dat@Dmodel@prior <- c(
+      dat@Dmodel@prior,
+      paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.01, log = TRUE)")
+    )
+  }
   #mov <- conv_mov(pars$p$mov_x_marrs[1, , , , 1], pars$p$mov_g_ymars[1, 1, , , 1], pars$p$mov_v_ymas[1, 1, , 1])
   #mov <- conv_mov(x, pars$p$mov_g_ymars[1, 1, , , 2], pars$p$mov_v_ymas[1, 1, , 2])
   #mov[1, , ]
 
-  tictoc::tic()
   fit <- fit_MSA(
     dat,
     pars$p,
     pars$map,
     pars$random,
-    run_model = FALSE,
+    run_model = TRUE,
     do_sd = TRUE
   )
-  tictoc::toc()
 
   file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
