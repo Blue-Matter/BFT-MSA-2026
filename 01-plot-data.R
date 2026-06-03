@@ -303,7 +303,8 @@ ggsave("figures/data/FI_Index.png", g, height = 4, width = 6)
 
 
 # Stock of origin
-SOO <- rbind(
+# Set 1 provided by Alex Hanke, DFO
+SOO1 <- rbind(
   read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Otolith"),
   read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) |> mutate(Source = "Genetic")
 ) |>
@@ -311,7 +312,7 @@ SOO <- rbind(
   mutate(Year = fYear + 0.25 * (Season - 1)) %>%
   arrange(Year)
 
-g <- SOO %>%
+g <- SOO1 %>%
   mutate(Area = factor(Region, area_names$Name)) %>%
   ggplot(aes(Year, Prob_West, colour = Source, group = Source, shape = Quarter)) +
   geom_line(linewidth = 0.1) +
@@ -319,10 +320,38 @@ g <- SOO %>%
   facet_grid(vars(paste("Age:", fAGE)), vars(Area)) +
   scale_shape_manual(values = c(1, 2, 4, 16)) +
   coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Probability WBFT") +
+  labs(x = "Year", y = "Probability WBFT", title = "Set 1 (A. Hanke)") +
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO.png", g, height = 5, width = 8)
+ggsave("figures/data/SOO1.png", g, height = 6, width = 8)
+
+
+# Set 2 provided by Igaratza Fraile, AZTI
+SOO2 <- rbind(
+  readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) |>
+    mutate(Source = "Otolith"),
+  readxl::read_excel(file.path("data", "SOO", "mixing_by_strataGEN.xlsx")) |>
+    mutate(Source = "Genetic") |>
+    rename(PropGOM = PropGOM09)
+) %>%
+  mutate(Prob_West = as.numeric(PropGOM), SE = as.numeric(SE)) %>%
+  mutate(Region = ifelse(Region == "NATL", "EATL", Region))
+
+
+g <- SOO2 %>%
+  filter(!is.na(Prob_West)) %>%
+  mutate(Area = factor(Region, c("GOM", "WATL", "NATL", "EATL", "MED"))) %>%
+  #mutate(Area = Region) %>%
+  ggplot(aes(Year, Prob_West, colour = Source, group = Source, shape = Quarter)) +
+  geom_line(linewidth = 0.1) +
+  geom_point(size = 1) +
+  facet_grid(vars(paste("Age:", fAGE)), vars(Area)) +
+  scale_shape_manual(values = c(1, 2, 4, 16)) +
+  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
+  labs(x = "Year", y = "Probability WBFT", title = "Set 2 (I. Fraile)") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/data/SOO2.png", g, height = 6, width = 8)
 
 # Etag
 ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%

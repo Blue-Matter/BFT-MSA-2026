@@ -7,12 +7,18 @@ library(parallel)
 
 # Data frame to describe multiple model runs ----
 Design <- data.frame(
-  initC_scalar = c(0.5, 0.5, 1), # Relative to first year catch
-  SSB_prior = c(FALSE, TRUE, FALSE),
-  output_name = c("reference_05.22.2026", "Wprior_05.22.2026", "highinitC_05.22.2026"),
-  model_name = c("Reference", "WBFT SSB prior", "High eq. catch")
+  initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1), # Relative to first year catch
+  dw_CAL = 1,
+  dw_SC = 0.1,
+  SC_set = c(1, 1, 2, 2, 1),
+  SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),
+  output_name = c("reference1_06.03.2026", "Wprior1_06.03.2026",
+                  "reference2_06.03.2026", "Wprior2_06.03.2026",
+                  "highinitC_06.03.2026"),
+  model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior",
+                 "SOO1 + SSBprior + High inital Catch")
 )
-readr::write_csv(Design, "tables/Design_05.22.2026.csv")
+readr::write_csv(Design, "tables/Design_06.03.2026.csv")
 
 # Wrapper function that will fit a model for each row in the Design data frame ----
 wrapper_fn <- function(x = 1, Design) {
@@ -20,21 +26,31 @@ wrapper_fn <- function(x = 1, Design) {
   require(multiSA)
   require(tidyverse)
 
-  dir_save <- "model_input/05.20.2026"
+  dir_save <- "model_input/06.03.2026"
 
   #### Make MSA data object from saved objects ----
+  if (Design$SC_set[x] == 1) {
+    Dfishery <- readRDS(file.path(dir_save, "Dfishery_SOO1.rds"))
+  } else {
+    Dfishery <- readRDS(file.path(dir_save, "Dfishery_SOO2.rds"))
+  }
   dat <- new(
     "MSAdata",
     Dmodel = readRDS(file.path(dir_save, "Dmodel.rds")),
     Dstock = readRDS(file.path(dir_save, "Dstock_A.rds")),
-    Dfishery = readRDS(file.path(dir_save, "Dfishery.rds")),
+    Dfishery = Dfishery,
     Dsurvey = readRDS(file.path(dir_save, "Dsurvey.rds")),
     Dtag = readRDS(file.path(dir_save, "Dtag.rds")),
     Dlabel = readRDS(file.path(dir_save, "Dlabel.rds"))
   )
-  #dat@Dmodel@prior <- dat@Dmodel@prior[-c(1:2)]
+  dat@Dmodel@prior <- dat@Dmodel@prior[-c(1:2)] # Eliminate rec dev sum to zero penalty
   dat@Dfishery@fcomp_like <- "multinomial"
 
+  # Downweight CAL
+  dat@Dfishery@lambdaCAL_f <- Design$dw_CAL[x]
+
+  # Downweight SC
+  dat@Dfishery@lambdaSC_f <- Design$dw_SC[x]
 
   # Rescale equilibrium catch
   dat@Dfishery@Cinit_mfr <- array(
@@ -55,7 +71,7 @@ wrapper_fn <- function(x = 1, Design) {
 
   parameters_start <- list(
     log_recdist_rs = log_recdist_rs,
-    R0_s = c(10000, 2000),
+    R0_s = c(5000, 1000),
     h_s = c(0.99, 0.6),
     log_sdr_s = log(c(0.5, 0.5))
   )
@@ -114,7 +130,8 @@ wrapper_fn <- function(x = 1, Design) {
     dat,
     start = parameters_start,
     map = map,
-    est_mov = "gravity_fixed"
+    est_mov = "gravity_fixed",
+    silent = TRUE
   )
 
   # Manually check movement matrix setup
@@ -167,6 +184,7 @@ wrapper_fn <- function(x = 1, Design) {
   #mov <- conv_mov(x, pars$p$mov_g_ymars[1, 1, , , 2], pars$p$mov_v_ymas[1, 1, , 2])
   #mov[1, , ]
 
+  #Rprofmem()
   fit <- fit_MSA(
     dat,
     pars$p,
@@ -175,32 +193,60 @@ wrapper_fn <- function(x = 1, Design) {
     run_model = TRUE,
     do_sd = TRUE
   )
+  #Rprofmem(NULL)
+
 
   file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
 
-  #fit <- readRDS(file.path("model_output", file_out))
-  report(fit,
-         name = Design$model_name[x],
-         dir = "model_output", filename = paste0("report_", Design$output_name[x]))
+  report(
+    fit,
+    name = Design$model_name[x],
+    dir = "model_output",
+    filename = paste0("report_", Design$output_name[x]),
+    open_file = FALSE
+  )
 
   return(invisible(fit))
 }
 
 
-# Fit all models in parallel ----
-cl <- parallel::makeCluster(nrow(Design))
+# Fit all models in parallel or in a loop ----
+do_parallel <- TRUE
 
-tictoc::tic()
-fits <- parallel::parLapply(
-  cl,
-  X = 1:nrow(Design),
-  wrapper_fn,
-  Design = Design
-)
-tictoc::toc()
+if (do_parallel) {
 
-parallel::stopCluster(cl)
+  cl <- parallel::makeCluster(3)
+  tictoc::tic()
+  fits <- parallel::parLapplyLB(
+    cl,
+    X = 1:nrow(Design),
+    wrapper_fn,
+    Design = Design
+  )
+  tictoc::toc()
 
+  parallel::stopCluster(cl)
 
+} else {
 
+  fits <- list()
+
+  for (i in 1:nrow(Design)) {
+    message("Model ", i)
+    tictoc::tic()
+    fits[[i]] <- wrapper_fn(i, Design = Design)
+    tictoc::toc()
+  }
+
+}
+
+if (FALSE) {
+
+  # Diagnostics on computational graph
+  i <- 1
+  FF <- RTMB::GetTape(fit[[i]]@obj)
+  ff <- FF$graph()
+  ff@Dimnames[[1]] |> table()
+
+}

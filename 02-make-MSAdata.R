@@ -45,7 +45,7 @@ Dmodel <- new(
   lmid = len_bin$LengthClass + 0.5 * unique(diff(len_bin$LengthClass)),
   Fmax = 3,
   y_phi = 1,
-  scale_s = c(1, 10), # Multiply WBFT R0 by 10 to get to similar order of magnitude as EBFT to aid estimation
+  nitF = 3,
   nyinit = 2 * na, # Spool-up for 2 life cycles
   condition = "catch"
 )
@@ -456,10 +456,10 @@ Dfishery@SC_aa[1, 0:4 + 1] <- Dfishery@SC_aa[2, 5:8 + 1] <- Dfishery@SC_aa[3, 10
 Dfishery@SC_like <- "logitnormal"
 
 #### Separate dummy fleets by SOO type
-
-# Dummy fleets: 1st row = microchemistry, 2nd row = genetics
+# Dummy fleets: 1st row = otolith microchemistry, 2nd row = genetics
 Dfishery@SC_ff <- matrix(1, 2, Dfishery@nf)
 
+# Set 1 from A. Hanke
 # Otolith
 SOO_otolith <- read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) %>%
   filter(Region %in% c("WATL", "EATL")) %>%
@@ -512,8 +512,64 @@ Dfishery@SCstdev_ymafrs[SOO_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]
 Dfishery@SCstdev_ymafrs[SOO_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO_genetic[, "SE"]
 
 
+# Set 2 values from Igaratza
+Dfishery_SOO2 <- Dfishery
+
+SOO2_otolith <- readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) %>%
+  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
+  filter(Region %in% c("WATL", "EATL")) %>%
+  rename(N = N_total, Prob_West = PropGOM) %>%
+  filter(!is.na(Prob_West)) %>%
+  mutate(
+    EBFT = N * (1 - Prob_West),
+    WBFT = N - EBFT,
+    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
+    r = match(Region, area_names$Name),
+    quarter = substr(Quarter, 2, 2) |> as.integer(),
+    y = Year - ModelYear[1] + 1
+  ) %>%
+  reshape2::melt(
+    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
+    measure.vars = c("EBFT", "WBFT")
+  ) %>%
+  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 1) %>%
+  select(!variable) %>%
+  as.matrix()
+stopifnot(all(!is.na(SOO2_otolith)))
+
+# Genetic
+SOO2_genetic <- readxl::read_excel(file.path("data", "SOO", "mixing_by_strataGEN.xlsx")) %>%
+  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
+  filter(Region %in% c("WATL", "EATL")) %>%
+  rename(N = N_total, Prob_West = PropGOM09) %>%
+  mutate(Prob_West = as.numeric(Prob_West), SE = as.numeric(SE)) %>%
+  filter(!is.na(Prob_West)) %>%
+  mutate(
+    EBFT = N * (1 - Prob_West),
+    WBFT = N - EBFT,
+    f = 2,
+    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
+    r = match(Region, area_names$Name),
+    quarter = substr(Quarter, 2, 2) |> as.integer(),
+    y = Year - ModelYear[1] + 1
+  ) %>%
+  reshape2::melt(
+    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
+    measure.vars = c("EBFT", "WBFT")
+  ) %>%
+  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 2) %>%
+  select(!variable) %>%
+  as.matrix()
+stopifnot(all(!is.na(SOO2_genetic)))
 
 
+Dfishery_SOO2@SC_ymafrs <- array(0, c(Dmodel@ny, Dmodel@nm, 3, 2, Dmodel@nr, Dmodel@ns))
+Dfishery_SOO2@SC_ymafrs[SOO2_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_otolith[, "value"]
+Dfishery_SOO2@SC_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_genetic[, "value"]
+
+Dfishery_SOO2@SCstdev_ymafrs <- array(NA, dim(Dfishery@SC_ymafrs))
+Dfishery_SOO2@SCstdev_ymafrs[SOO2_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_otolith[, "SE"]
+Dfishery_SOO2@SCstdev_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_genetic[, "SE"]
 
 
 
@@ -546,13 +602,14 @@ Dlabel <- new(
 
 
 #### Save objects
-dir_save <- "model_input/05.20.2026"
+dir_save <- "model_input/06.03.2026"
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))
 saveRDS(Dstock_A, file.path(dir_save, "Dstock_A.rds"))
 saveRDS(Dstock_B, file.path(dir_save, "Dstock_B.rds"))
-saveRDS(Dfishery, file.path(dir_save, "Dfishery.rds"))
+saveRDS(Dfishery, file.path(dir_save, "Dfishery_SOO1.rds"))
+saveRDS(Dfishery_SOO2, file.path(dir_save, "Dfishery_SOO2.rds"))
 saveRDS(Dsurvey, file.path(dir_save, "Dsurvey.rds"))
 saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
 saveRDS(Dlabel, file.path(dir_save, "Dlabel.rds"))

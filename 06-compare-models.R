@@ -2,10 +2,26 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_05.22.2026.csv")
+Design <- readr::read_csv("tables/Design_06.03.2026.csv")
 
-fits <- lapply(Design$output_name, function(i) readRDS(file.path("model_output", paste0("fit_", i, ".rds"))))
+fits <- lapply(1:nrow(Design), {
+  function(i) readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
+})
 
+# Likelihoods
+like <- lapply(fits, multiSA:::get_likelihood_components) %>%
+  bind_rows() %>%
+  as.matrix() %>%
+  `rownames<-`(Design$model_name)
+
+like %>%
+  apply(2, function(x) x - max(x)) %>%
+  t() %>%
+  signif(4)
+
+# Get values of parameters
+var_name <- "R0_s"
+lapply(fits, function(i) i@report[[var_name]])
 
 # Compare SSB
 SSB <- lapply(1:nrow(Design), function(i) {
@@ -16,7 +32,7 @@ SSB <- lapply(1:nrow(Design), function(i) {
   mutate(model = factor(model, Design$model_name))
 
 prior <- data.frame(
-  model = Design$model_name[2],
+  model = Design$model_name[c(2, 4)],
   stock = "WBFT",
   year = 2021,
   S = 18000,
@@ -30,20 +46,20 @@ g <- SSB %>%
   facet_grid(vars(stock), vars(model)) +
   geom_col(width = 1, aes(fill = region)) +
   geom_pointrange(data = prior, size = 0.25, aes(ymin = lwr, ymax = upr)) +
-  labs(x = "Year", y = "Spawning stock biomass", fill = NULL) +
+  labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
   scale_fill_manual(values = multiSA:::make_color(4, "region"))
 ggsave("figures/fit/compare_SSB.png", g, height = 5, width = 7)
 
+g <- SSB %>%
+  ggplot(aes(year, S)) +
+  facet_grid(vars(stock), vars(model), scales = "free_y") +
+  geom_col(width = 1, aes(fill = region)) +
+  geom_pointrange(data = prior, size = 0.25, aes(ymin = lwr, ymax = upr)) +
+  labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
+  scale_fill_manual(values = multiSA:::make_color(4, "region"))
+ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
 
-# Likelihoods
-like <- sapply(fits, function(i) {
-  sapply(i@report[grepl("loglike", names(i@report))], sum)
-}) %>%
-  `colnames<-`(Design$model_name)
 
-like[, 1:2] %>%
-  apply(1, function(x) x - max(x)) %>%
-  t()
 
 
 dat <- get_MSAdata(fit)
@@ -100,6 +116,7 @@ soo <- lapply(1:length(fits), function(i) {
 
 g <- soo %>%
   filter(stock == "WBFT") %>%
+  filter(grepl("SOO1", model)) %>%
   filter(!is.na(pred), pred > 0) %>%
   mutate(Age = paste("Age", Age)) %>%
   ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
@@ -115,9 +132,32 @@ g <- soo %>%
        linetype = "Model",
        fill = NULL, shape = NULL,
        colour = NULL,
-       title = "Stock of origin") +
+       title = "Stock of origin (Set 1)") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SOO_fit.png", g, height = 5, width = 8)
+ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
+
+
+g <- soo %>%
+  filter(stock == "WBFT") %>%
+  filter(grepl("SOO2", model)) %>%
+  filter(!is.na(pred), pred > 0) %>%
+  mutate(Age = paste("Age", Age)) %>%
+  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
+  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
+  #geom_line(aes(y = pred), colour = 'red') +
+  geom_point(size = 0.5, shape = 1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  facet_grid(vars(region), vars(Age)) +
+  coord_cartesian(ylim = c(0, 1)) +
+  #scale_shape_manual(values = c(1, 8)) +
+  #coord_cartesian(xlim = c(1970, 2025)) +
+  labs(x = "Year", y = "Proportion WBFT",
+       linetype = "Model",
+       fill = NULL, shape = NULL,
+       colour = NULL,
+       title = "Stock of origin (Set 2)") +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
 
 # Tag transitions
 tags <- lapply(1:length(fits), function(i) {
@@ -153,12 +193,13 @@ plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
 
   if (type == "departure") {
     Nsamp <- tags_plot %>%
-      summarise(N_from = unique(N), .by = c(season, from))
+      filter(model %in% unique(model)[1]) %>%
+      summarise(N_from = unique(N), .by = c(season, from, from_label, from_num))
 
     g <- tags_plot %>%
       ggplot(aes(to_num, pred)) +
       facet_grid(vars(from_label), vars(season)) +
-      geom_label(data = Nsamp, aes(label = paste("N =", N_from)), x = Inf, y = Inf, hjust = "inward", vjust = "inward") +
+      geom_text(data = Nsamp, aes(label = paste("N =", N_from)), x = Inf, y = Inf, hjust = "inward", vjust = "inward") +
       geom_line(aes(y = obs), colour = "black") +
       geom_point(aes(y = obs), shape = 1, colour = "black") +
       geom_line(aes(colour = model), linewidth = 1) +
@@ -185,8 +226,8 @@ plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
 g <- filter(tags, stock == "WBFT") %>%
   plot_tags(title = "WBFT")
 
-g <- filter(tags, stock == "WBFT") %>%
-  plot_tags(title = "WBFT", type = "arrival")
+#g <- filter(tags, stock == "WBFT") %>%
+#  plot_tags(title = "WBFT", type = "arrival")
 
 g <- filter(tags, stock == "EBFT", aa == 1) %>%
   plot_tags(title = paste("EBFT, Age", aa[1]))
@@ -246,4 +287,25 @@ g <- CAL_agg %>%
   facet_wrap(vars(fleet), ncol = 3, scales = "free_y") +
   labs(x = "Length Bin", y = "Proportion", colour = NULL)
 ggsave(file.path(dir_save, "CAL_agg_fit.png"), g, height = 8, width = 6)
+
+# Catch residual
+Cresid <- lapply(1:length(fits), function(i) {
+
+  residuals(fits[[i]], vars = "Cobs_ymfr") %>%
+    reshape2::melt() %>%
+    mutate(model = Design$model_name[i])
+
+}) %>%
+  bind_rows() %>%
+  mutate(model = factor(model, Design$model_name)) %>%
+  filter(!is.na(value))
+
+g <- Cresid %>%
+  filter(abs(value) < 1) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(fill = "grey80", linewidth = 0.1, colour = "black") +
+  facet_wrap(vars(model), ncol = 3) +
+  labs(x = "Catch residual")
+ggsave(file.path(dir_save, "Cresid.png"), g, height = 4, width = 6)
+
 
