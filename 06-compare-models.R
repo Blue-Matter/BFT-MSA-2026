@@ -34,10 +34,10 @@ SSB <- lapply(1:nrow(Design), function(i) {
 prior <- data.frame(
   model = Design$model_name[c(2, 4)],
   stock = "WBFT",
-  year = 2021,
-  S = 18000,
-  lwr = exp(log(18000) - 1.96 * 0.18),
-  upr = exp(log(18000) + 1.96 * 0.18)
+  year = 2018,
+  S = 22000,
+  lwr = exp(log(22000) - 1.96 * 0.18),
+  upr = exp(log(22000) + 1.96 * 0.18)
 ) %>%
   mutate(model = factor(model, Design$model_name))
 
