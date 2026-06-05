@@ -73,7 +73,7 @@ prior_dist <- local({
     m <- paste0("log(", val["Index"], ")")
     cv <- val["CV"]
 
-    paste0("calc_eqdist(", mov, ", m_start = 2, start = ", start, ")[", val["Season"], ", ", r, "] %>% log() %>% dnorm(", m, ", ", cv, ", log = TRUE)")
+    paste0("calc_eqdist(", mov, ", m_start = 2, start = ", start, ")[", val["Season"], ", ", r, "] |> log() |> dnorm(", m, ", ", cv, ", log = TRUE)")
   })
 })
 
