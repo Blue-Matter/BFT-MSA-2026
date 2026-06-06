@@ -8,6 +8,9 @@ fits <- lapply(1:nrow(Design), {
   function(i) readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
 })
 
+# Convergence
+lapply(fits, function(i) i@SD$pdHess)
+
 # Likelihoods
 like <- lapply(fits, multiSA:::get_likelihood_components) %>%
   bind_rows() %>%
@@ -47,7 +50,8 @@ g <- SSB %>%
   geom_col(width = 1, aes(fill = region)) +
   geom_pointrange(data = prior, size = 0.25, aes(ymin = lwr, ymax = upr)) +
   labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
-  scale_fill_manual(values = multiSA:::make_color(4, "region"))
+  scale_fill_manual(values = multiSA:::make_color(4, "region")) +
+  theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SSB.png", g, height = 5, width = 7)
 
 g <- SSB %>%
@@ -56,7 +60,8 @@ g <- SSB %>%
   geom_col(width = 1, aes(fill = region)) +
   geom_pointrange(data = prior, size = 0.25, aes(ymin = lwr, ymax = upr)) +
   labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
-  scale_fill_manual(values = multiSA:::make_color(4, "region"))
+  scale_fill_manual(values = multiSA:::make_color(4, "region")) +
+  theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
 
 
@@ -86,7 +91,8 @@ g <- ggplot(index_all, aes(year, obs)) +
   expand_limits(y = 0) +
   facet_wrap(vars(name), ncol = 3, scales = "free_y") +
   labs(x = "Year", y = "Index", colour = "Model") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") +
+  guides(colour = guide_legend(ncol = 2))
 ggsave("figures/fit/compare_index_fit.png", g, width = 6, height = 8)
 
 # SOO
@@ -114,47 +120,105 @@ soo <- lapply(1:length(fits), function(i) {
   mutate(lwr = plogis(qlogis(obs) - 1.96 * se),
          upr = plogis(qlogis(obs) + 1.96 * se))
 
-g <- soo %>%
+#g <- soo %>%
+#  filter(stock == "WBFT") %>%
+#  filter(grepl("SOO1", model)) %>%
+#  filter(!is.na(pred), pred > 0) %>%
+#  mutate(Age = paste("Age", Age)) %>%
+#  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
+#  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
+#  #geom_line(aes(y = pred), colour = 'red') +
+#  geom_point(size = 0.5, shape = 1) +
+#  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+#  facet_grid(vars(region), vars(Age)) +
+#  coord_cartesian(ylim = c(0, 1)) +
+#  #scale_shape_manual(values = c(1, 8)) +
+#  #coord_cartesian(xlim = c(1970, 2025)) +
+#  labs(x = "Year", y = "Proportion WBFT",
+#       linetype = "Model",
+#       fill = NULL, shape = NULL,
+#       colour = NULL,
+#       title = "Stock of origin (Set 1)") +
+#  theme(legend.position = "bottom")
+#ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
+#
+#g <- soo %>%
+#  filter(stock == "WBFT") %>%
+#  filter(grepl("SOO2", model)) %>%
+#  filter(!is.na(pred), pred > 0) %>%
+#  mutate(Age = paste("Age", Age)) %>%
+#  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
+#  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
+#  #geom_line(aes(y = pred), colour = 'red') +
+#  geom_point(size = 0.5, shape = 1) +
+#  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+#  facet_grid(vars(region), vars(Age)) +
+#  coord_cartesian(ylim = c(0, 1)) +
+#  #scale_shape_manual(values = c(1, 8)) +
+#  #coord_cartesian(xlim = c(1970, 2025)) +
+#  labs(x = "Year", y = "Proportion WBFT",
+#       linetype = "Model",
+#       fill = NULL, shape = NULL,
+#       colour = NULL,
+#       title = "Stock of origin (Set 2)") +
+#  theme(legend.position = "bottom")
+#ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
+
+soo1_pred <- soo %>%
   filter(stock == "WBFT") %>%
-  filter(grepl("SOO1", model)) %>%
-  filter(!is.na(pred), pred > 0) %>%
+  filter(model %in% Design$model_name[1:2]) %>%
+  #filter(grepl("SOO1", model)) %>%
   mutate(Age = paste("Age", Age)) %>%
-  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
-  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
-  #geom_line(aes(y = pred), colour = 'red') +
-  geom_point(size = 0.5, shape = 1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  filter(!is.na(pred), pred > 0)
+soo1_obs <- soo %>%
+  filter(stock == "WBFT") %>%
+  filter(model %in% Design$model_name[1:2]) %>%
+  #filter(grepl("SOO1", model)) %>%
+  mutate(Age = paste("Age", Age)) %>%
+  filter(!is.na(obs))
+
+g <- soo1_pred %>%
+  ggplot(aes(year, pred)) +
+  geom_line(aes(colour = model), linewidth = 0.15) +
+  geom_point(data = soo1_obs, aes(y = obs, shape = Fleet), size = 0.75) +
+  geom_line(data = soo1_obs, aes(y = obs, linetype = Fleet), linewidth = 0.15) +
+  #geom_linerange(linewidth = 0.5, aes(ymin = lwr, ymax = upr)) +
   facet_grid(vars(region), vars(Age)) +
   coord_cartesian(ylim = c(0, 1)) +
-  #scale_shape_manual(values = c(1, 8)) +
-  #coord_cartesian(xlim = c(1970, 2025)) +
+  scale_shape_manual(values = c(16, 1)) +
   labs(x = "Year", y = "Proportion WBFT",
-       linetype = "Model",
-       fill = NULL, shape = NULL,
-       colour = NULL,
+       colour = "Model prediction",
+       linetype = "Data", shape = "Data",
        title = "Stock of origin (Set 1)") +
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
 
 
-g <- soo %>%
+soo2_pred <- soo %>%
   filter(stock == "WBFT") %>%
+  #filter(model %in% Design$model_name[3:4]) %>%
   filter(grepl("SOO2", model)) %>%
-  filter(!is.na(pred), pred > 0) %>%
   mutate(Age = paste("Age", Age)) %>%
-  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
-  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
-  #geom_line(aes(y = pred), colour = 'red') +
-  geom_point(size = 0.5, shape = 1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  filter(!is.na(pred), pred > 0)
+soo2_obs <- soo %>%
+  filter(stock == "WBFT") %>%
+  #filter(model %in% Design$model_name[3:4]) %>%
+  filter(grepl("SOO2", model)) %>%
+  mutate(Age = paste("Age", Age)) %>%
+  filter(!is.na(obs))
+
+g <- soo2_pred %>%
+  ggplot(aes(year, pred)) +
+  geom_line(aes(colour = model), linewidth = 0.15) +
+  geom_point(data = soo2_obs, aes(y = obs, shape = Fleet), size = 0.75) +
+  geom_line(data = soo2_obs, aes(y = obs, linetype = Fleet), linewidth = 0.15) +
+  #geom_linerange(linewidth = 0.5, aes(ymin = lwr, ymax = upr)) +
   facet_grid(vars(region), vars(Age)) +
   coord_cartesian(ylim = c(0, 1)) +
-  #scale_shape_manual(values = c(1, 8)) +
-  #coord_cartesian(xlim = c(1970, 2025)) +
+  scale_shape_manual(values = c(16, 1)) +
   labs(x = "Year", y = "Proportion WBFT",
-       linetype = "Model",
-       fill = NULL, shape = NULL,
-       colour = NULL,
+       colour = "Model prediction",
+       linetype = "Data", shape = "Data",
        title = "Stock of origin (Set 2)") +
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
@@ -205,8 +269,9 @@ plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
       geom_line(aes(colour = model), linewidth = 1) +
       scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
       coord_cartesian(ylim = c(0, 1)) +
-      labs(x = "Destination", y = "Proportion (departure)", colour = "Model", title = title) +
-      theme(legend.position = "bottom")
+      labs(x = "Destination", y = "Proportion (departure from origin)", colour = "Model", title = title) +
+      theme(legend.position = "bottom") +
+      guides(colour = guide_legend(ncol = 2))
   } else {
 
     g <- tags_plot %>%
@@ -218,26 +283,29 @@ plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
       scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
       coord_cartesian(ylim = c(0, 1)) +
       labs(x = "Origin", y = "Proportion (arrival)", colour = "Model", title = title) +
-      theme(legend.position = "bottom")
+      theme(legend.position = "bottom") +
+      guides(colour = guide_legend(ncol = 2))
   }
   g
 }
 
-g <- filter(tags, stock == "WBFT") %>%
-  plot_tags(title = "WBFT")
 
-#g <- filter(tags, stock == "WBFT") %>%
-#  plot_tags(title = "WBFT", type = "arrival")
 
-g <- filter(tags, stock == "EBFT", aa == 1) %>%
+g <- filter(tags, stock == "EBFT", aa == 1, model %in% Design$model_name[1:4]) %>%
   plot_tags(title = paste("EBFT, Age", aa[1]))
+ggsave("figures/fit/compare_tag_EBFT_a1.png", g, height = 6, width = 6)
 
-g <- filter(tags, stock == "EBFT", aa == 2) %>%
+g <- filter(tags, stock == "EBFT", aa == 2, model %in% Design$model_name[1:4]) %>%
   plot_tags(title = paste("EBFT, Age", aa[2]))
+ggsave("figures/fit/compare_tag_EBFT_a2.png", g, height = 6, width = 6)
 
-g <- filter(tags, stock == "EBFT", aa == 3) %>%
+g <- filter(tags, stock == "EBFT", aa == 3, model %in% Design$model_name[1:4]) %>%
   plot_tags(title = paste("EBFT, Age", aa[3]))
+ggsave("figures/fit/compare_tag_EBFT_a3.png", g, height = 6, width = 6)
 
+g <- filter(tags, stock == "WBFT", model %in% Design$model_name[1:4]) %>%
+  plot_tags(title = "WBFT")
+ggsave("figures/fit/compare_tag_WBFT.png", g, height = 6, width = 6)
 
 # CAL
 dat <- get_MSAdata(fits[[1]])
@@ -283,10 +351,58 @@ g <- CAL_agg %>%
   ggplot(aes(lmid, obs)) +
   geom_area(fill = "grey80", linewidth = 0.1, colour = "black") +
   geom_point() +
-  geom_line(data = CAL_agg, aes(y = pred, colour = model), linewidth = 1.25) +
+  geom_line(data = filter(CAL_agg, model %in% Design$model_name[1:4]),
+            aes(y = pred, colour = model), linewidth = 1.25) +
   facet_wrap(vars(fleet), ncol = 3, scales = "free_y") +
-  labs(x = "Length Bin", y = "Proportion", colour = NULL)
-ggsave(file.path(dir_save, "CAL_agg_fit.png"), g, height = 8, width = 6)
+  labs(x = "Length Bin", y = "Proportion", colour = NULL) +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_CAL_agg_fit.png", g, height = 8, width = 6)
+
+# Plot movement
+mov <- lapply(1:nrow(Design), function(i) {
+  lapply(1:2, function(s) {
+    plot_mov(fits[[i]], s = s, figure = FALSE)
+  }) %>%
+    bind_rows() %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Destination = ifelse(Destination == "Equilibrium", "Eq.", Destination)) %>%
+  filter(model %in% Design$model_name[1:4])
+
+plot_mov2 <- function(mov) {
+  areas <- c("GOM", "WATL", "EATL", "MED", "", "Eq.")
+  val <- seq(0, 1, 0.01)
+  cols <- hcl.colors(length(val), palette = "Peach", rev = TRUE) %>% structure(names = val)
+
+  g <- mov %>%
+    mutate(x = match(Destination, areas), yy = match(Origin, areas)) %>%
+    ggplot(aes(x, yy, fill = round(proportion, 2) %>% factor())) +
+    geom_tile(colour = "black") +
+    geom_text(size = 2.25, aes(label = round(proportion, 2))) +
+    facet_grid(vars(model), vars(Season)) +
+    scale_fill_manual(values = cols) +
+    guides(fill = "none") +
+    scale_x_continuous(breaks = 1:length(areas), labels = areas) +
+    scale_y_continuous(breaks = 1:4, labels = areas[1:4]) +
+    coord_transform(reverse = "y", expand = FALSE) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    labs(x = "Destination", y = "Origin", fill = "Proportion")
+  g
+}
+
+g <- mov %>%
+  filter(stock == "EBFT") %>%
+  plot_mov2() +
+  labs(title = "EBFT")
+ggsave("figures/fit/compare_mov_EBFT.png", g, height = 6, width = 6)
+
+g <- mov %>%
+  filter(stock == "WBFT") %>%
+  plot_mov2() +
+  labs(title = "WBFT")
+ggsave("figures/fit/compare_mov_WBFT.png", g, height = 6, width = 6)
+
 
 # Catch residual
 Cresid <- lapply(1:length(fits), function(i) {
@@ -308,4 +424,118 @@ g <- Cresid %>%
   labs(x = "Catch residual")
 ggsave(file.path(dir_save, "Cresid.png"), g, height = 4, width = 6)
 
+
+# Depletion
+S_S0 <- lapply(1:nrow(Design), function(i) {
+  dat <- get_MSAdata(fits[[i]])
+  S_ys <- apply(fits[[i]]@report$S_yrs, c(1, 3), sum)
+  S0 <- fits[[i]]@report$SB0_s
+  dep <- structure(t(S_ys)/S0, dimnames = list(Stock = dat@Dlabel@stock, Year = dat@Dlabel@year))
+
+  reshape2::melt(dep, value.name = "dep") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows()
+
+g <- S_S0 %>%
+  filter(model %in% Design$model_name[1:4]) %>%
+  ggplot(aes(Year, dep, linetype = Stock)) +
+  geom_line() +
+  facet_wrap(vars(model)) +
+  coord_cartesian(ylim = c(0, 1.5)) +
+  expand_limits(y = 0) +
+  labs(y = expression(S/S[0]))
+ggsave("figures/fit/compare_depletion.png", g, height = 4, width = 5)
+
+# SSB by season
+SB_season <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+
+  N_ymars <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ]
+  mat_ymars <- array(
+    dat@Dstock@mat_yas,
+    c(dat@Dmodel@ny, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nm, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 4, 2, 5, 3))
+  fec_ymars <- array(
+    dat@Dstock@swt_ymas,
+    c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 2, 3, 5, 4))
+
+  S_ymrs <- apply(N_ymars * mat_ymars * fec_ymars, c(1, 2, 4, 5), sum) %>%
+    structure(dimnames = list(
+      year = dat@Dlabel@year,
+      season = dat@Dlabel@season,
+      region = dat@Dlabel@region,
+      stock = dat@Dlabel@stock
+    ))
+  reshape2::melt(S_ymrs, value.name = "S") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows()
+
+for (i in 1:nrow(Design)) {
+  g <- SB_season %>%
+    filter(model == Design$model_name[i]) %>%
+    #filter(stock == "EBFT") %>%
+    ggplot(aes(year, S, fill = stock)) +
+    geom_col(width = 1) +
+    facet_grid(vars(region), vars(season)) +
+    labs(x = "Year", y = "Mature biomass", fill = "Stock", title = Design$model_name[i]) +
+    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+  ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+}
+
+# Calculate regional exploitation rate
+u <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+  CB_ymrs <- apply(fit@report$CB_ymfrs, c(1, 2, 4, 5), sum)
+  B_ymrs <- fit@report$B_ymrs
+  Year <- multiSA:::make_yearseason(dat@Dlabel@year, 4)
+  U_ymrs <- CB_ymrs/B_ymrs
+  U_ymrs[CB_ymrs < 1e-8] <- 0
+  U_yrs <- multiSA:::collapse_yearseason(U_ymrs) %>%
+    structure(dimnames = list(Year = Year, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock))
+  reshape2::melt(U_yrs, value.name = "Ex") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Season = 4 * (Year - floor(Year)) + 1)
+
+u_eq <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+
+  CB_mrs <- apply(fit@report$initCB_mfrs, c(1, 3, 4), sum)
+  N_mars <- sapply2(1:dat@Dmodel@ns, function(s) fit@report$initNPR_mars[, , , s] * fit@report$initReq_s[s])
+  B_mrs <- sapply2(1:dat@Dmodel@nr, function(r) N_mars[, , r, ] * dat@Dstock@swt_ymas[1, , , ]) %>%
+    apply(c(1, 4, 3), sum)
+
+  U_mrs <- CB_mrs/B_mrs
+  U_mrs[CB_mrs < 1e-8] <- 0
+
+  structure(U_mrs, dimnames = list(Season = dat@Dlabel@season, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock)) %>%
+    reshape2::melt(value.name = "Ex") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Year = min(u$Year) - 1)
+
+for (i in 1:nrow(Design)) {
+  g <- u %>%
+    filter(model == Design$model_name[i]) %>%
+    mutate(Season = paste("Season", Season)) %>%
+    ggplot(aes(floor(Year), Ex, colour = Stock)) +
+    facet_grid(vars(Region), vars(Season), scales = "free") +
+    geom_line() +
+    geom_point(data = u_eq %>% filter(model == Design$model_name[i])) +
+    #geom_point(alpha = 0.5, size = 0.75, aes(colour = factor(Season))) +
+    labs(x = "Year", y = "Seasonal Catch/Biomass", title = Design$model_name[i]) +
+    theme(legend.position = "bottom")
+  ggsave(paste0("figures/fit/regional_exploitation_model", i, ".png"), g, height = 5, width = 6)
+}
 
