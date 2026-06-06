@@ -9,7 +9,7 @@ library(parallel)
 Design <- data.frame(
   initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1), # Relative to first year catch
   dw_CAL = 1,
-  dw_SC = 0.1,
+  dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),
   SC_set = c(1, 1, 2, 2, 1),
   SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),
   output_name = c("reference1_06.03.2026", "Wprior1_06.03.2026",
