@@ -27,6 +27,19 @@ for (j in 3:4) {
 }
 
 if (FALSE) {
-  i <- model_name[3]
+  i <- model_name[4]
   like <- readRDS(file = file.path("jitter", paste0("jitter_loglik_", i)))
+
+  g <- like %>%
+    mutate(Jitter = 1:n()) %>%
+    reshape2::melt(id.vars = "Jitter") %>%
+    filter(!variable %in% c("loglike_Cinit_mfr", "conv", "fn")) %>%
+    mutate(value = ifelse(grepl("log", variable), -1 * value, value)) %>%
+    #mutate(value = value - min(value), .by = variable) %>%
+    ggplot(aes(Jitter, value)) +
+    facet_wrap(vars(variable), scales = "free_y") +
+    geom_point() +
+    geom_line() +
+    labs(x = "Jitter Run")
+
 }
