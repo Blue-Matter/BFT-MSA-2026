@@ -199,13 +199,13 @@ wrapper_fn <- function(x = 1, Design) {
   file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
 
-  report(
-    fit,
-    name = Design$model_name[x],
-    dir = "model_output",
-    filename = paste0("report_", Design$output_name[x]),
-    open_file = FALSE
-  )
+  #report(
+  #  fit,
+  #  name = Design$model_name[x],
+  #  dir = "model_output",
+  #  filename = paste0("report_", Design$output_name[x]),
+  #  open_file = FALSE
+  #)
 
   return(invisible(fit))
 }
