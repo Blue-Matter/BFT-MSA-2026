@@ -314,20 +314,38 @@ SOO1 <- rbind(
 ) |>
   mutate(Season = substr(Quarter, 2, 2) |> as.numeric()) %>%
   mutate(Year = fYear + 0.25 * (Season - 1)) %>%
-  arrange(Year)
+  arrange(Year) %>%
+  mutate(lwr = plogis(qlogis(Prob_West) - 1.96 * SE),
+       upr = plogis(qlogis(Prob_West) + 1.96 * SE))
 
 g <- SOO1 %>%
   mutate(Area = factor(Region, area_names$Name)) %>%
-  ggplot(aes(Year, Prob_West, colour = Source, group = Source, shape = N > 10)) +
-  geom_line(linewidth = 0.1) +
-  geom_point(size = 1) +
-  facet_grid(vars(paste("Age:", fAGE)), vars(Area)) +
-  scale_shape_manual(values = c(1, 16)) +
+  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
+  scale_fill_manual(values = c("black", "white")) +
   coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
   labs(x = "Year", y = "Probability WBFT", title = "Set 1 (A. Hanke)") +
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO1.png", g, height = 6, width = 8)
+ggsave("figures/data/SOO1.png", g, height = 7, width = 6)
+
+g <- SOO1 %>%
+  filter(N >= 10) %>%
+  mutate(Area = factor(Region, area_names$Name)) %>%
+  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
+  scale_fill_manual(values = c("black", "white")) +
+  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
+  labs(x = "Year", y = "Probability WBFT", title = "Set 1 (A. Hanke)") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/data/SOO1_exN10.png", g, height = 7, width = 6)
 
 
 # Set 2 provided by Igaratza Fraile, AZTI
@@ -339,24 +357,43 @@ SOO2 <- rbind(
     rename(PropGOM = PropGOM09)
 ) %>%
   mutate(Prob_West = as.numeric(PropGOM), SE = as.numeric(SE)) %>%
-  mutate(Region = ifelse(Region == "NATL", "EATL", Region))
+  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
+  mutate(lwr = plogis(qlogis(Prob_West) - 1.96 * SE),
+         upr = plogis(qlogis(Prob_West) + 1.96 * SE))
 
 
 g <- SOO2 %>%
   filter(!is.na(Prob_West)) %>%
   rename(N = N_total) %>%
   mutate(Area = factor(Region, c("GOM", "WATL", "NATL", "EATL", "MED"))) %>%
-  #mutate(Area = Region) %>%
-  ggplot(aes(Year, Prob_West, colour = Source, group = Source, shape = N > 10)) +
-  geom_line(linewidth = 0.1) +
-  geom_point(size = 1) +
-  facet_grid(vars(paste("Age:", fAGE)), vars(Area)) +
-  scale_shape_manual(values = c(1, 16)) +
+  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
+  scale_fill_manual(values = c("black", "white")) +
   coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
   labs(x = "Year", y = "Probability WBFT", title = "Set 2 (I. Fraile)") +
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO2.png", g, height = 6, width = 8)
+ggsave("figures/data/SOO2.png", g, height = 7, width = 6)
+
+g <- SOO2 %>%
+  filter(!is.na(Prob_West)) %>%
+  rename(N = N_total) %>%
+  filter(N >= 10) %>%
+  mutate(Area = factor(Region, c("GOM", "WATL", "NATL", "EATL", "MED"))) %>%
+  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
+  scale_fill_manual(values = c("black", "white")) +
+  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
+  labs(x = "Year", y = "Probability WBFT", title = "Set 2 (I. Fraile)") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/data/SOO2_exN10.png", g, height = 7, width = 6)
 
 # Etag
 ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%

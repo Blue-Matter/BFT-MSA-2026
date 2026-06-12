@@ -2,10 +2,16 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_06.03.2026.csv")
+Design <- readr::read_csv("tables/Design_06.03.2026.csv")[1:4, ]
 
-fits <- lapply(1:nrow(Design), {
-  function(i) readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
+#Design$output_name[c(2, 4)] <- paste0(Design$output_name[c(2, 4)], "_CV05")
+
+fits <- lapply(1:nrow(Design), function(i) {
+  if (i == 1) {
+    readRDS(file.path("model_output", paste0("newfit_", Design$output_name[i], ".rds")))
+  } else {
+    readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
+  }
 })
 
 # Convergence
@@ -180,15 +186,15 @@ soo1_obs <- soo %>%
 g <- soo1_pred %>%
   ggplot(aes(year, pred)) +
   geom_line(aes(colour = model), linewidth = 0.15) +
-  geom_point(data = soo1_obs, aes(y = obs, shape = Fleet), size = 0.75) +
-  geom_line(data = soo1_obs, aes(y = obs, linetype = Fleet), linewidth = 0.15) +
-  #geom_linerange(linewidth = 0.5, aes(ymin = lwr, ymax = upr)) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(data = soo1_obs, aes(y = obs, fill = Fleet), shape = 21, size = 0.75) +
+  geom_line(data = soo1_obs, aes(y = obs, linetype = Fleet), linewidth = 0.1) +
   facet_grid(vars(region), vars(Age)) +
   coord_cartesian(ylim = c(0, 1)) +
-  scale_shape_manual(values = c(16, 1)) +
+  scale_fill_manual(values = c("black", "white")) +
   labs(x = "Year", y = "Proportion WBFT",
        colour = "Model prediction",
-       linetype = "Data", shape = "Data",
+       linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 1)") +
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
@@ -210,15 +216,15 @@ soo2_obs <- soo %>%
 g <- soo2_pred %>%
   ggplot(aes(year, pred)) +
   geom_line(aes(colour = model), linewidth = 0.15) +
-  geom_point(data = soo2_obs, aes(y = obs, shape = Fleet), size = 0.75) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(data = soo2_obs, aes(y = obs, fill = Fleet), shape = 21, size = 0.75) +
   geom_line(data = soo2_obs, aes(y = obs, linetype = Fleet), linewidth = 0.15) +
-  #geom_linerange(linewidth = 0.5, aes(ymin = lwr, ymax = upr)) +
   facet_grid(vars(region), vars(Age)) +
   coord_cartesian(ylim = c(0, 1)) +
-  scale_shape_manual(values = c(16, 1)) +
+  scale_fill_manual(values = c("black", "white")) +
   labs(x = "Year", y = "Proportion WBFT",
        colour = "Model prediction",
-       linetype = "Data", shape = "Data",
+       linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 2)") +
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
