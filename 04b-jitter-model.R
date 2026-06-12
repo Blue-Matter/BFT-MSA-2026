@@ -2,13 +2,8 @@
 
 library(multiSA)
 
-
-model_name <- c(
-  "reference1_06.03.2026.rds",
-  "reference2_06.03.2026.rds",
-  "Wprior1_06.03.2026.rds",
-  "Wprior2_06.03.2026.rds"
-)
+Design <- readr::read_csv("tables/Design_06.03.2026.csv")
+model_name <- paste0(Design$output_name[1:4], ".rds")
 
 #for (j in 1:length(model_name)) {
 for (j in 3:4) {
@@ -27,8 +22,17 @@ for (j in 3:4) {
 }
 
 if (FALSE) {
-  i <- model_name[4]
+  i <- model_name[1]
   like <- readRDS(file = file.path("jitter", paste0("jitter_loglik_", i)))
+
+  names_df <- data.frame(
+    variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi", "loglike_SC_ymafr",
+                 "loglike_tag_mov_ymars", "logprior", "logprior_par",
+                 "logprior_rdev_ys", "penalty", "objective", "maxgrad"),
+    variable2 = c("All likelihoods", "Like: Length composition", "Like: Indices", "Like: SOO",
+                  "Like: Tags", "All priors", "Pr: spatial prior",
+                  "Pr: Rec devs", "Penalty", "Objective", "Max. Gradient")
+  )
 
   g <- like %>%
     mutate(Jitter = 1:n()) %>%
@@ -36,10 +40,13 @@ if (FALSE) {
     filter(!variable %in% c("loglike_Cinit_mfr", "conv", "fn")) %>%
     mutate(value = ifelse(grepl("log", variable), -1 * value, value)) %>%
     #mutate(value = value - min(value), .by = variable) %>%
+    left_join(names_df) %>%
+    mutate(variable2 = factor(variable2, names_df$variable2)) %>%
     ggplot(aes(Jitter, value)) +
-    facet_wrap(vars(variable), scales = "free_y") +
+    facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     geom_line() +
-    labs(x = "Jitter Run")
+    labs(x = "Jitter Run", title = "SOO1")
+  ggsave("figures/jitter_run.png", g, height = 6, width = 8)
 
 }
