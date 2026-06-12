@@ -14,6 +14,7 @@ fits <- lapply(1:nrow(Design), function(i) {
   }
 })
 
+
 # Convergence
 lapply(fits, function(i) i@SD$pdHess)
 
@@ -29,8 +30,16 @@ like %>%
   signif(4)
 
 # Get values of parameters
+dat <- get_MSAdata(fits[[1]])
+
 var_name <- "R0_s"
-lapply(fits, function(i) i@report[[var_name]])
+R0_df <- sapply(fits, function(i) i@report[[var_name]]) %>%
+  structure(dimnames = list(Stock = dat@Dlabel@stock, Model = Design$model_name)) %>%
+  t() %>%
+  as.data.frame() %>%
+  round() %>%
+  mutate(ratio = round(EBFT/WBFT, 2))
+write.csv(R0_df, file = "tables/compare_R0.csv")
 
 # Compare SSB
 SSB <- lapply(1:nrow(Design), function(i) {
@@ -73,7 +82,6 @@ ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
 
 
 
-dat <- get_MSAdata(fit)
 
 # Aggregate fit to all indices
 index_all <- lapply(1:length(fits), function(i) {
@@ -495,6 +503,31 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
 }
 
+# Total biomass by season
+B_season <- lapply(1:nrow(Design), function (i) {
+  dat <- get_MSAdata(fits[[i]])
+  B <- plot_B(fits[[i]], figure = FALSE) %>%
+    mutate(season = 4 * (year - floor(year)) + 1,
+           Season = dat@Dlabel@season[season],
+           model = Design$model_name[i])
+  return(B)
+}) %>%
+  bind_rows()
+
+for (i in 1:nrow(Design)) {
+  g <- B_season %>%
+    filter(model == Design$model_name[i]) %>%
+    mutate(year = floor(year)) %>%
+    #filter(stock == "EBFT") %>%
+    ggplot(aes(year, B, fill = stock)) +
+    geom_col(width = 1) +
+    facet_grid(vars(region), vars(Season)) +
+    labs(x = "Year", y = "Total biomass", fill = "Stock", title = Design$model_name[i]) +
+    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+  ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+}
+
 # Calculate regional exploitation rate
 u <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
@@ -540,6 +573,7 @@ for (i in 1:nrow(Design)) {
     geom_line() +
     geom_point(data = u_eq %>% filter(model == Design$model_name[i])) +
     #geom_point(alpha = 0.5, size = 0.75, aes(colour = factor(Season))) +
+    coord_cartesian(ylim = c(0, 1)) +
     labs(x = "Year", y = "Seasonal Catch/Biomass", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
   ggsave(paste0("figures/fit/regional_exploitation_model", i, ".png"), g, height = 5, width = 6)
