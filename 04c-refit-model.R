@@ -26,4 +26,4 @@ fit_new <- fit_MSA(
 # The starting parameters that generated this fit in the jitter run
 fit_new@obj$par <- fit@obj$par
 fit_new@opt <- fit@opt
-saveRDS(fit_new, file = file.path("jitter", "newfit_reference1_06.03.2026.rds"))
+saveRDS(fit_new, file = file.path("model_output", "newfit_reference1_06.03.2026.rds"))

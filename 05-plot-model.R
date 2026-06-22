@@ -3,11 +3,9 @@ library(multiSA)
 library(tidyverse)
 library(randtests)
 
-#fit <- readRDS("model_output/fit_reference_05.22.2026.rds")
-#dir_save <- file.path("figures", "fit", "05.22")
+fit <- readRDS("model_output/fit_reference1_06.03.2026.rds")
+dir_save <- file.path("figures", "fit", "06.03")
 
-fit <- readRDS("model_output/fit_Wprior_05.22.2026.rds")
-dir_save <- file.path("figures", "fit", "05.22_Wprior")
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 dat <- get_MSAdata(fit)
