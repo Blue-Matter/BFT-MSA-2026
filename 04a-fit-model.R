@@ -180,11 +180,7 @@ wrapper_fn <- function(x = 1, Design) {
       paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.01, log = TRUE)")
     )
   }
-  #mov <- conv_mov(pars$p$mov_x_marrs[1, , , , 1], pars$p$mov_g_ymars[1, 1, , , 1], pars$p$mov_v_ymas[1, 1, , 1])
-  #mov <- conv_mov(x, pars$p$mov_g_ymars[1, 1, , , 2], pars$p$mov_v_ymas[1, 1, , 2])
-  #mov[1, , ]
 
-  #Rprofmem()
   fit <- fit_MSA(
     dat,
     pars$p,
@@ -193,19 +189,19 @@ wrapper_fn <- function(x = 1, Design) {
     run_model = TRUE,
     do_sd = TRUE
   )
-  #Rprofmem(NULL)
-
 
   file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
 
-  #report(
-  #  fit,
-  #  name = Design$model_name[x],
-  #  dir = "model_output",
-  #  filename = paste0("report_", Design$output_name[x]),
-  #  open_file = FALSE
-  #)
+  if (FALSE) {
+    report(
+      fit,
+      name = Design$model_name[x],
+      dir = "model_output",
+      filename = paste0("report_", Design$output_name[x]),
+      open_file = FALSE
+    )
+  }
 
   return(invisible(fit))
 }
@@ -241,12 +237,3 @@ if (do_parallel) {
 
 }
 
-if (FALSE) {
-
-  # Diagnostics on computational graph
-  i <- 1
-  FF <- RTMB::GetTape(fit[[i]]@obj)
-  ff <- FF$graph()
-  ff@Dimnames[[1]] |> table()
-
-}

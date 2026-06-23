@@ -3,12 +3,26 @@ library(multiSA)
 library(tidyverse)
 library(randtests)
 
-fit <- readRDS("model_output/fit_reference1_06.03.2026.rds")
+fit <- readRDS("model_output/newfit_reference1_06.03.2026.rds")
 dir_save <- file.path("figures", "fit", "06.03")
 
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 dat <- get_MSAdata(fit)
+
+# Report selectivity prior mean for ascending and descending limb
+fit <- readRDS("model_output/fit_reference1_06.03.2026.rds")
+report_start <- fit@obj$report(fit@obj$par)
+sel_est <- fit@report$selconv_pf %>% round(2)
+selprior <- tibble::tibble(
+  Fleet = dat@Dlabel@fleet,
+  `Prior mean` = selprior_mean[2, ],
+  `Estimate (Ascending)` = sel_est[2, ],
+  `Estimate (Descending)` = sel_est[3, ],
+  `Estimate (Full Sel.)` = sel_est[1, ],
+)
+selprior[grepl("logistic", dat@Dfishery@sel_f), 4] <- NA
+readr::write_csv(selprior, "tables/selprior.csv")
 
 # Aggregate fit to all indices
 index_all <- lapply(1:dat@Dsurvey@ni, function(i) plot_index(fit, i = i, zoom = TRUE, figure = FALSE)) %>%
