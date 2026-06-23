@@ -12,13 +12,13 @@ Design <- data.frame(
   dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),
   SC_set = c(1, 1, 2, 2, 1),
   SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),
-  output_name = c("reference1_06.03.2026", "Wprior1_06.03.2026",
-                  "reference2_06.03.2026", "Wprior2_06.03.2026",
-                  "highinitC_06.03.2026"),
+  output_name = c("reference1_06.22.2026", "Wprior1_06.22.2026",
+                  "reference2_06.22.2026", "Wprior2_06.22.2026",
+                  "highinitC_06.22.2026"),
   model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior",
                  "SOO1 + SSBprior + High inital Catch")
 )
-readr::write_csv(Design, "tables/Design_06.03.2026.csv")
+readr::write_csv(Design, "tables/Design_06.22.2026.csv")
 
 # Wrapper function that will fit a model for each row in the Design data frame ----
 wrapper_fn <- function(x = 1, Design) {

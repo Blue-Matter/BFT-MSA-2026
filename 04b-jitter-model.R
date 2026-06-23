@@ -2,11 +2,10 @@
 
 library(multiSA)
 
-Design <- readr::read_csv("tables/Design_06.03.2026.csv")
+Design <- readr::read_csv("tables/Design_06.22.2026.csv")
 model_name <- paste0(Design$output_name[1:4], ".rds")
 
-#for (j in 1:length(model_name)) {
-for (j in 3:4) {
+for (j in 1:length(model_name)) {
   i <- model_name[j]
   fit <- readRDS(file.path("model_output", paste0("fit_", i)))
 
@@ -22,8 +21,9 @@ for (j in 3:4) {
 }
 
 if (FALSE) {
-  i <- model_name[1]
-  like <- readRDS(file = file.path("jitter", paste0("jitter_loglik_", i)))
+  j <- 1
+  i <- Design$output_name[j]
+  like <- readRDS(file = file.path("jitter", paste0("jitter_loglik_", i, ".rds")))
 
   names_df <- data.frame(
     variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi", "loglike_SC_ymafr",
@@ -46,7 +46,7 @@ if (FALSE) {
     facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     geom_line() +
-    labs(x = "Jitter Run", title = "SOO1")
+    labs(x = "Jitter Run", title = Design$model_name[j])
   ggsave("figures/jitter_run.png", g, height = 6, width = 8)
 
 }
