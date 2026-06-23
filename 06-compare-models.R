@@ -2,18 +2,11 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_06.03.2026.csv")[1:4, ]
-
-#Design$output_name[c(2, 4)] <- paste0(Design$output_name[c(2, 4)], "_CV05")
+Design <- readr::read_csv("tables/Design_06.22.2026.csv")[1:4, ]
 
 fits <- lapply(1:nrow(Design), function(i) {
-  if (i == 1) {
-    readRDS(file.path("model_output", paste0("newfit_", Design$output_name[i], ".rds")))
-  } else {
-    readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
-  }
+  readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
 })
-
 
 # Convergence
 lapply(fits, function(i) i@SD$pdHess)
@@ -528,7 +521,7 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
 }
 
-# Calculate regional exploitation rate
+# Calculate seasonal, spatial exploitation rates
 u <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
@@ -576,6 +569,95 @@ for (i in 1:nrow(Design)) {
     coord_cartesian(ylim = c(0, 1)) +
     labs(x = "Year", y = "Seasonal Catch/Biomass", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
-  ggsave(paste0("figures/fit/regional_exploitation_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(paste0("figures/fit/spatial_exploitation_model", i, ".png"), g, height = 5, width = 6)
+}
+
+# Calculate seasonal, spatial F
+FF <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+  Year <- multiSA:::make_yearseason(dat@Dlabel@year, 4)
+
+  F_yrs <- apply(fit@report$F_ymars, c(1, 2, 4, 5), max) %>%
+    multiSA:::collapse_yearseason() %>%
+    structure(dimnames = list(Year = Year, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock))
+  reshape2::melt(F_yrs, value.name = "FM") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Season = 4 * (Year - floor(Year)) + 1)
+
+for (i in 1:nrow(Design)) {
+  g <- FF %>%
+    filter(model == Design$model_name[i]) %>%
+    mutate(Season = paste("Season", Season)) %>%
+    ggplot(aes(floor(Year), FM, colour = Stock)) +
+    facet_grid(vars(Region), vars(Season), scales = "free") +
+    geom_line() +
+    geom_jitter() +
+    expand_limits(y = 0) +
+    #coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Year", y = "Seasonal Apical F", title = Design$model_name[i]) +
+    theme(legend.position = "bottom")
+  ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
+}
+
+
+# Calculate seasonal, spatial F at age
+FF_age <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+  Year <- multiSA:::make_yearseason(dat@Dlabel@year, 4)
+
+  F_yars <- multiSA:::collapse_yearseason(fit@report$F_ymars) %>%
+    structure(dimnames = list(Year = Year, Age = dat@Dlabel@age, Region = dat@Dlabel@region, Stock = dat@Dlabel@stock))
+
+  reshape2::melt(F_yars, value.name = "FM") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Season = 4 * (Year - floor(Year)) + 1)
+
+for (i in 1:nrow(Design)) {
+  g <- FF_age %>%
+    filter(Stock == "WBFT") %>%
+    filter(model == Design$model_name[i]) %>%
+    mutate(Season = paste("Season", Season)) %>%
+    ggplot(aes(floor(Year), Age, fill = FM)) +
+    facet_grid(vars(Region), vars(Season), scales = "free") +
+    geom_tile() +
+    scale_fill_viridis_c(option = "C") +
+    labs(x = "Year", y = "Age", fill = "Fishing mortality", title = Design$model_name[i]) +
+    theme(legend.position = "bottom")
+  ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
+}
+
+CAA <- lapply(1:nrow(Design), function (i) {
+  fit <- fits[[i]]
+  dat <- get_MSAdata(fit)
+  Year <- multiSA:::make_yearseason(dat@Dlabel@year, 4)
+
+  C_yar <- fit@report$CN_ymafrs %>%
+    apply(c(1, 2, 3, 5), sum) %>%
+    multiSA:::collapse_yearseason() %>%
+    structure(dimnames = list(Year = Year, Age = dat@Dlabel@age, Region = dat@Dlabel@region))
+
+  reshape2::melt(C_yar, value.name = "value") %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(Season = 4 * (Year - floor(Year)) + 1)
+
+for (i in 1:nrow(Design)) {
+  g <- CAA %>%
+    filter(model == Design$model_name[i]) %>%
+    mutate(Season = paste("Season", Season)) %>%
+    ggplot(aes(floor(Year), Age, fill = value)) +
+    facet_grid(vars(Region), vars(Season), scales = "free") +
+    geom_tile() +
+    scale_fill_viridis_c(option = "C") +
+    labs(x = "Year", y = "Age", fill = "Catch at age", title = Design$model_name[i]) +
+    theme(legend.position = "bottom")
+  ggsave(paste0("figures/fit/spatial_CAA_model", i, ".png"), g, height = 5, width = 6)
 }
 
