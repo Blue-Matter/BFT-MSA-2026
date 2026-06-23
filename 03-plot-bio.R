@@ -2,12 +2,12 @@
 
 library(tidyverse)
 
-dir_save <- "model_input/05.20.2026"
+dir_save <- "model_input/06.03.2026"
 
 Dstock_A <- readRDS(file.path(dir_save, "Dstock_A.rds"))
 Dstock_B <- readRDS(file.path(dir_save, "Dstock_B.rds"))
 
-# Length at age
+# Length at age (same for both stocks)
 len_age <- Dstock_A@len_ymas[1, , , ] %>%
   reshape2::melt() %>%
   rename(Season = Var1, Int_Age = Var2, Length = value, Stock = Var3) %>%
