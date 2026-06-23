@@ -177,7 +177,7 @@ wrapper_fn <- function(x = 1, Design) {
   if (Design$SSB_prior[x]) {
     dat@Dmodel@prior <- c(
       dat@Dmodel@prior,
-      paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.01, log = TRUE)")
+      paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.05, log = TRUE)")
     )
   }
 
