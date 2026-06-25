@@ -263,6 +263,7 @@ cpue_names <- summarise(cpue, n = n(), .by = Name) %>%
   mutate(Name2 = paste0("(", c(LETTERS, letters[1:4]), ") ", Name))
 
 g <- cpue %>%
+  filter(Name %in% cpue_names$Name[1:16]) %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
   mutate(Year = Year + 0.25 * (Season - 1)) %>%
   left_join(cpue_names, by = "Name") %>%
@@ -285,6 +286,7 @@ index_names <- summarise(index, n = n(), .by = Name) %>%
   mutate(Name2 = paste0("(", 1:nrow(.), ") ", Name))
 
 g <- index %>%
+  filter(Name %in% index_names$Name[1:7]) %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
   mutate(Year = Year + 0.25 * (Season - 1),
          Stock = ifelse(Stock == 1, "EBFT", "WBFT")) %>%
