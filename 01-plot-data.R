@@ -269,10 +269,10 @@ g <- cpue %>%
   left_join(cpue_names, by = "Name") %>%
   mutate(Name2 = factor(Name2, cpue_names$Name2)) %>%
   ggplot(aes(Year, Index, colour = Area, group = Area)) +
-  geom_line(linewidth = 0.1, linetype = 3, color = "grey40") +
+  geom_line(linewidth = 0.25, linetype = 3, color = "grey40") +
   geom_linerange(linewidth = 0.25, aes(ymin = exp(log(Index) - 2 * CV), ymax = exp(log(Index) + 2*CV))) +
-  geom_point(size = 0.25) +
-  facet_wrap(vars(Name2), ncol = 4, scales = "free_y") +
+  geom_point(size = 1) +
+  facet_wrap(vars(Name2), ncol = 3, scales = "free_y") +
   expand_limits(y = 0) +
   labs(x = "Year", y = "Fishery CPUE", colour = NULL) +
   theme(legend.position = "bottom")
