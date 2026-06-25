@@ -34,9 +34,9 @@ saveRDS(p, file = file.path("profile", "Wprior2_WBFT_R0_06.22.2026.rds"))
 if (FALSE) {
   p <- readRDS(file = file.path("profile", "Wprior1_WBFT_R0_06.22.2026.rds"))
 
-  png("figures/profile/WR0_ref1.png", height = 4, width = 5, units = "in", res = 400)
+  png("figures/profile/WR0_SOO1.png", height = 4, width = 5, units = "in", res = 400)
   par(mar = c(5, 4, 1, 1))
-  plot(p, xlab = "WBFT R0", component = "fn", ylab = "Change in objective function", main = "SOO1")
+  plot(p, xlab = "WBFT R0", component = "fn", ylab = "Change in objective function", main = "SOO1 + SSB prior")
   dev.off()
 
   MLE <- attr(p$profile, "fitted")[1, 1]
@@ -46,49 +46,50 @@ if (FALSE) {
                  "loglike_tag_mov_ymars", "logprior", "logprior_par",
                  "logprior_rdev_ys", "penalty", "objective"),
     variable2 = c("All likelihoods", "Like: Length composition", "Like: Indices", "Like: SOO",
-                  "Like: Tags", "All priors", "Pr: spatial prior",
+                  "Like: Tags", "All priors", "Pr: spatial + sel + SSB prior",
                   "Pr: Rec devs", "Penalty", "Objective")
   )
 
   g <- reshape2::melt(p$profile, id.vars = c("R0_s[2]")) %>%
-    filter(!variable %in% c("loglike_Cinit_mfr", "fn")) %>%
     mutate(value = ifelse(grepl("log", variable), -1 * value, value)) %>%
     mutate(value = value - min(value), .by = variable) %>%
     left_join(names_df) %>%
     mutate(variable2 = factor(variable2, names_df$variable2)) %>%
+    filter(!is.na(variable2)) %>%
     ggplot(aes(`R0_s[2]`, value)) +
     facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     #coord_transform(x = "log") +
     geom_vline(xintercept = MLE, linetype = 2) +
     geom_line() +
-    ggtitle("SOO1") +
+    ggtitle("SOO1 + SSB prior") +
     labs(x = "WBFT R0")
-  ggsave("figures/profile/WR0_Wprior1_components.png", g, width = 8, height = 6)
+  ggsave("figures/profile/WR0_SOO1_components.png", g, width = 8, height = 5)
 
 
   p <- readRDS(file = file.path("profile", "Wprior2_WBFT_R0_06.22.2026.rds"))
 
-  png("figures/profile/WR0_ref2.png", height = 4, width = 5, units = "in", res = 400)
+  png("figures/profile/WR0_SOO2.png", height = 4, width = 5, units = "in", res = 400)
   par(mar = c(5, 4, 1, 1))
-  plot(p, xlab = "WBFT R0", component = "fn", ylab = "Change in objective function", main = "SOO2")
+  plot(p, xlab = "WBFT R0", component = "fn", ylab = "Change in objective function", main = "SOO2 + SSB prior")
   dev.off()
 
   MLE <- attr(p$profile, "fitted")[1, 1]
+
   g <- reshape2::melt(p$profile, id.vars = c("R0_s[2]")) %>%
-    filter(!variable %in% c("loglike_Cinit_mfr", "fn")) %>%
     mutate(value = ifelse(grepl("log", variable), -1 * value, value)) %>%
     mutate(value = value - min(value), .by = variable) %>%
     left_join(names_df) %>%
     mutate(variable2 = factor(variable2, names_df$variable2)) %>%
+    filter(!is.na(variable2)) %>%
     ggplot(aes(`R0_s[2]`, value)) +
     facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     #coord_transform(x = "log") +
     geom_vline(xintercept = MLE, linetype = 2) +
     geom_line() +
-    ggtitle("SOO2") +
+    ggtitle("SOO2 + SSB prior") +
     labs(x = "WBFT R0")
-  ggsave("figures/profile/WR0_Wprior2_components.png", g, width = 8, height = 6)
+  ggsave("figures/profile/WR0_SOO2_components.png", g, width = 8, height = 5)
 
 }
