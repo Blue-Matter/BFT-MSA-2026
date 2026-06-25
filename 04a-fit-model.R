@@ -5,17 +5,17 @@ library(tidyverse)
 library(tictoc)
 library(parallel)
 
-# Data frame to describe multiple model runs ----
+# Data frame to describe multiple model runs (unique configuration in each row) ----
 Design <- data.frame(
-  initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1), # Relative to first year catch
-  dw_CAL = 1,
-  dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),
-  SC_set = c(1, 1, 2, 2, 1),
-  SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),
-  output_name = c("reference1_06.22.2026", "Wprior1_06.22.2026",
+  initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1),                            # Equilibrium catch (proportion to first year catch)
+  dw_CAL = 1,                                                         # Lambda factor for length composition
+  dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),                               # Lambda factor for stock of origin
+  SC_set = c(1, 1, 2, 2, 1),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
+  SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
+  output_name = c("reference1_06.22.2026", "Wprior1_06.22.2026",      # File name of output
                   "reference2_06.22.2026", "Wprior2_06.22.2026",
                   "highinitC_06.22.2026"),
-  model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior",
+  model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior", # Model name (for figures later on)
                  "SOO1 + SSBprior + High inital Catch")
 )
 readr::write_csv(Design, "tables/Design_06.22.2026.csv")
@@ -181,6 +181,7 @@ wrapper_fn <- function(x = 1, Design) {
     )
   }
 
+  # Fit model
   fit <- fit_MSA(
     dat,
     pars$p,
@@ -190,9 +191,11 @@ wrapper_fn <- function(x = 1, Design) {
     do_sd = TRUE
   )
 
+  # Save model object
   file_out <- paste0("fit_", Design$output_name[x], ".rds")
   saveRDS(fit, file.path("model_output", file_out))
 
+  # Can take a while to render document
   if (FALSE) {
     report(
       fit,
@@ -212,7 +215,7 @@ do_parallel <- TRUE
 
 if (do_parallel) {
 
-  cl <- parallel::makeCluster(3)
+  cl <- parallel::makeCluster(3) # Need to limit the number of cores due to memory constraints
   tictoc::tic()
   fits <- parallel::parLapplyLB(
     cl,

@@ -2,9 +2,9 @@
 library(multiSA)
 library(tidyverse)
 
-fit <- readRDS(file.path("model_output", "newfit_reference1_06.03.2026.rds"))
+fit <- readRDS(file.path("model_output", "fit_Wprior1_06.22.2026.rds"))
 
-# Single profile of WBFT R0
+# Single profile of WBFT R0 - SOO1
 tictoc::tic()
 p <- profile(
   fit,
@@ -14,10 +14,25 @@ p <- profile(
   cores = 4
 )
 tictoc::toc()
-saveRDS(p, file = file.path("profile", "reference1_WBFT_R0_06.03.2026.rds"))
+saveRDS(p, file = file.path("profile", "Wprior1_WBFT_R0_06.22.2026.rds"))
+
+fit <- readRDS(file.path("model_output", "fit_Wprior2_06.22.2026.rds"))
+
+# Single profile of WBFT R0 - SOO2
+tictoc::tic()
+p <- profile(
+  fit,
+  p1 = "R0_s[2]",
+  v1 = c(100, 150, 300, 500, 700, 1000, 1200, 1500, 2000, 3000),
+  return_models = FALSE,
+  cores = 4
+)
+tictoc::toc()
+saveRDS(p, file = file.path("profile", "Wprior2_WBFT_R0_06.22.2026.rds"))
+
 
 if (FALSE) {
-  p <- readRDS(file = file.path("profile", "reference1_WBFT_R0_06.03.2026.rds"))
+  p <- readRDS(file = file.path("profile", "Wprior1_WBFT_R0_06.22.2026.rds"))
 
   png("figures/profile/WR0_ref1.png", height = 4, width = 5, units = "in", res = 400)
   par(mar = c(5, 4, 1, 1))
@@ -49,10 +64,10 @@ if (FALSE) {
     geom_line() +
     ggtitle("SOO1") +
     labs(x = "WBFT R0")
-  ggsave("figures/profile/WR0_ref1_components.png", g, width = 8, height = 6)
+  ggsave("figures/profile/WR0_Wprior1_components.png", g, width = 8, height = 6)
 
 
-  p <- readRDS(file = file.path("profile", "reference2_WBFT_R0_06.03.2026.rds"))
+  p <- readRDS(file = file.path("profile", "Wprior2_WBFT_R0_06.22.2026.rds"))
 
   png("figures/profile/WR0_ref2.png", height = 4, width = 5, units = "in", res = 400)
   par(mar = c(5, 4, 1, 1))
@@ -74,6 +89,6 @@ if (FALSE) {
     geom_line() +
     ggtitle("SOO2") +
     labs(x = "WBFT R0")
-  ggsave("figures/profile/WR0_ref2_components.png", g, width = 8, height = 6)
+  ggsave("figures/profile/WR0_Wprior2_components.png", g, width = 8, height = 6)
 
 }

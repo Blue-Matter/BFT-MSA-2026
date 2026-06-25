@@ -52,6 +52,7 @@ prior <- data.frame(
 ) %>%
   mutate(model = factor(model, Design$model_name))
 
+# Spawning biomass - common y-axis between stocks
 g <- SSB %>%
   ggplot(aes(year, S)) +
   facet_grid(vars(stock), vars(model)) +
@@ -62,6 +63,7 @@ g <- SSB %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SSB.png", g, height = 5, width = 7)
 
+# Spawning biomass - separate axes by stock
 g <- SSB %>%
   ggplot(aes(year, S)) +
   facet_grid(vars(stock), vars(model), scales = "free_y") +
@@ -91,7 +93,12 @@ index_all <- lapply(1:length(fits), function(i) {
   bind_rows() %>%
   mutate(model = factor(model, Design$model_name))
 
-g <- ggplot(index_all, aes(year, obs)) +
+unique_ind <- unique(index_all$name)
+
+# CPUE
+g <- index_all %>%
+  filter(name %in% unique_ind[1:16]) %>%
+  ggplot(aes(year, obs)) +
   geom_point(size = 0.5) +
   geom_linerange(linewidth = 0.1, aes(ymin = lwr, ymax = upr)) +
   geom_line(aes(y = pred, colour = model)) +
@@ -100,7 +107,22 @@ g <- ggplot(index_all, aes(year, obs)) +
   labs(x = "Year", y = "Index", colour = "Model") +
   theme(legend.position = "bottom") +
   guides(colour = guide_legend(ncol = 2))
-ggsave("figures/fit/compare_index_fit.png", g, width = 6, height = 8)
+ggsave("figures/fit/compare_CPUE_fit.png", g, width = 6, height = 8)
+
+
+# Fishery-independent indices
+g <- index_all %>%
+  filter(!name %in% unique_ind[1:16]) %>%
+  ggplot(aes(year, obs)) +
+  geom_point(size = 0.5) +
+  geom_linerange(linewidth = 0.1, aes(ymin = lwr, ymax = upr)) +
+  geom_line(aes(y = pred, colour = model)) +
+  expand_limits(y = 0) +
+  facet_wrap(vars(name), ncol = 3, scales = "free_y") +
+  labs(x = "Year", y = "Index", colour = "Model") +
+  theme(legend.position = "bottom") +
+  guides(colour = guide_legend(ncol = 2))
+ggsave("figures/fit/compare_index_fit.png", g, width = 6, height = 6)
 
 # SOO
 aa <- c("0-4", "5-8", "9+")
@@ -126,50 +148,6 @@ soo <- lapply(1:length(fits), function(i) {
   mutate(model = factor(model, Design$model_name)) %>%
   mutate(lwr = plogis(qlogis(obs) - 1.96 * se),
          upr = plogis(qlogis(obs) + 1.96 * se))
-
-#g <- soo %>%
-#  filter(stock == "WBFT") %>%
-#  filter(grepl("SOO1", model)) %>%
-#  filter(!is.na(pred), pred > 0) %>%
-#  mutate(Age = paste("Age", Age)) %>%
-#  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
-#  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
-#  #geom_line(aes(y = pred), colour = 'red') +
-#  geom_point(size = 0.5, shape = 1) +
-#  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-#  facet_grid(vars(region), vars(Age)) +
-#  coord_cartesian(ylim = c(0, 1)) +
-#  #scale_shape_manual(values = c(1, 8)) +
-#  #coord_cartesian(xlim = c(1970, 2025)) +
-#  labs(x = "Year", y = "Proportion WBFT",
-#       linetype = "Model",
-#       fill = NULL, shape = NULL,
-#       colour = NULL,
-#       title = "Stock of origin (Set 1)") +
-#  theme(legend.position = "bottom")
-#ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
-#
-#g <- soo %>%
-#  filter(stock == "WBFT") %>%
-#  filter(grepl("SOO2", model)) %>%
-#  filter(!is.na(pred), pred > 0) %>%
-#  mutate(Age = paste("Age", Age)) %>%
-#  ggplot(aes(year, obs, colour = Fleet, fill = Fleet)) +
-#  geom_line(aes(y = pred, linetype = model), linewidth = 0.15, colour = "black") +
-#  #geom_line(aes(y = pred), colour = 'red') +
-#  geom_point(size = 0.5, shape = 1) +
-#  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-#  facet_grid(vars(region), vars(Age)) +
-#  coord_cartesian(ylim = c(0, 1)) +
-#  #scale_shape_manual(values = c(1, 8)) +
-#  #coord_cartesian(xlim = c(1970, 2025)) +
-#  labs(x = "Year", y = "Proportion WBFT",
-#       linetype = "Model",
-#       fill = NULL, shape = NULL,
-#       colour = NULL,
-#       title = "Stock of origin (Set 2)") +
-#  theme(legend.position = "bottom")
-#ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
 
 soo1_pred <- soo %>%
   filter(stock == "WBFT") %>%
@@ -377,7 +355,7 @@ mov <- lapply(1:nrow(Design), function(i) {
   mutate(Destination = ifelse(Destination == "Equilibrium", "Eq.", Destination)) %>%
   filter(model %in% Design$model_name[1:4])
 
-plot_mov2 <- function(mov) {
+plot_mov_gg <- function(mov) {
   areas <- c("GOM", "WATL", "EATL", "MED", "", "Eq.")
   val <- seq(0, 1, 0.01)
   cols <- hcl.colors(length(val), palette = "Peach", rev = TRUE) %>% structure(names = val)
@@ -400,13 +378,13 @@ plot_mov2 <- function(mov) {
 
 g <- mov %>%
   filter(stock == "EBFT") %>%
-  plot_mov2() +
+  plot_mov_gg() +
   labs(title = "EBFT")
 ggsave("figures/fit/compare_mov_EBFT.png", g, height = 6, width = 6)
 
 g <- mov %>%
   filter(stock == "WBFT") %>%
-  plot_mov2() +
+  plot_mov_gg() +
   labs(title = "WBFT")
 ggsave("figures/fit/compare_mov_WBFT.png", g, height = 6, width = 6)
 
@@ -429,8 +407,6 @@ g <- Cresid %>%
   geom_histogram(fill = "grey80", linewidth = 0.1, colour = "black") +
   facet_wrap(vars(model), ncol = 3) +
   labs(x = "Catch residual")
-ggsave(file.path(dir_save, "Cresid.png"), g, height = 4, width = 6)
-
 
 # Depletion
 S_S0 <- lapply(1:nrow(Design), function(i) {
@@ -497,28 +473,30 @@ for (i in 1:nrow(Design)) {
 }
 
 # Total biomass by season
-B_season <- lapply(1:nrow(Design), function (i) {
-  dat <- get_MSAdata(fits[[i]])
-  B <- plot_B(fits[[i]], figure = FALSE) %>%
-    mutate(season = 4 * (year - floor(year)) + 1,
-           Season = dat@Dlabel@season[season],
-           model = Design$model_name[i])
-  return(B)
-}) %>%
-  bind_rows()
+if (FALSE) {
+  B_season <- lapply(1:nrow(Design), function (i) {
+    dat <- get_MSAdata(fits[[i]])
+    B <- plot_B(fits[[i]], figure = FALSE) %>%
+      mutate(season = 4 * (year - floor(year)) + 1,
+             Season = dat@Dlabel@season[season],
+             model = Design$model_name[i])
+    return(B)
+  }) %>%
+    bind_rows()
 
-for (i in 1:nrow(Design)) {
-  g <- B_season %>%
-    filter(model == Design$model_name[i]) %>%
-    mutate(year = floor(year)) %>%
-    #filter(stock == "EBFT") %>%
-    ggplot(aes(year, B, fill = stock)) +
-    geom_col(width = 1) +
-    facet_grid(vars(region), vars(Season)) +
-    labs(x = "Year", y = "Total biomass", fill = "Stock", title = Design$model_name[i]) +
-    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
-    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
-  ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+  for (i in 1:nrow(Design)) {
+    g <- B_season %>%
+      filter(model == Design$model_name[i]) %>%
+      mutate(year = floor(year)) %>%
+      #filter(stock == "EBFT") %>%
+      ggplot(aes(year, B, fill = stock)) +
+      geom_col(width = 1) +
+      facet_grid(vars(region), vars(Season)) +
+      labs(x = "Year", y = "Total biomass", fill = "Stock", title = Design$model_name[i]) +
+      scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+      theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+    ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+  }
 }
 
 # Calculate seasonal, spatial exploitation rates
@@ -604,6 +582,7 @@ for (i in 1:nrow(Design)) {
 
 
 # Calculate seasonal, spatial F at age
+# F is identical between stocks, what matters is availability (whether the fish are there or not)
 FF_age <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
@@ -632,6 +611,7 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
 }
 
+# Catch at age - aggregate across both stocks
 CAA <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
