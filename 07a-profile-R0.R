@@ -57,7 +57,8 @@ if (FALSE) {
     mutate(variable2 = factor(variable2, names_df$variable2)) %>%
     filter(!is.na(variable2)) %>%
     ggplot(aes(`R0_s[2]`, value)) +
-    facet_wrap(vars(variable2), scales = "free_y") +
+    facet_wrap(vars(variable2), scales = "fixed") +
+    #facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     #coord_transform(x = "log") +
     geom_vline(xintercept = MLE, linetype = 2) +
@@ -83,7 +84,8 @@ if (FALSE) {
     mutate(variable2 = factor(variable2, names_df$variable2)) %>%
     filter(!is.na(variable2)) %>%
     ggplot(aes(`R0_s[2]`, value)) +
-    facet_wrap(vars(variable2), scales = "free_y") +
+    facet_wrap(vars(variable2), scales = "fixed") +
+    #facet_wrap(vars(variable2), scales = "free_y") +
     geom_point() +
     #coord_transform(x = "log") +
     geom_vline(xintercept = MLE, linetype = 2) +

@@ -16,6 +16,7 @@ like <- lapply(fits, multiSA:::get_likelihood_components) %>%
   bind_rows() %>%
   as.matrix() %>%
   `rownames<-`(Design$model_name)
+write.csv(as.data.frame(like), "tables/like.csv")
 
 like %>%
   apply(2, function(x) x - max(x)) %>%
@@ -104,7 +105,7 @@ g <- index_all %>%
   geom_line(aes(y = pred, colour = model)) +
   expand_limits(y = 0) +
   facet_wrap(vars(name), ncol = 3, scales = "free_y") +
-  labs(x = "Year", y = "Index", colour = "Model") +
+  labs(x = "Year", y = "CPUE", colour = "Model") +
   theme(legend.position = "bottom") +
   guides(colour = guide_legend(ncol = 2))
 ggsave("figures/fit/compare_CPUE_fit.png", g, width = 6, height = 8)
@@ -428,7 +429,7 @@ g <- S_S0 %>%
   coord_cartesian(ylim = c(0, 1.5)) +
   expand_limits(y = 0) +
   labs(y = expression(S/S[0]))
-ggsave("figures/fit/compare_depletion.png", g, height = 4, width = 5)
+ggsave("figures/fit/compare_depletion.png", g, height = 3.5, width = 5)
 
 # SSB by season
 SB_season <- lapply(1:nrow(Design), function (i) {
