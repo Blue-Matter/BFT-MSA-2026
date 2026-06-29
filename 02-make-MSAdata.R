@@ -29,8 +29,9 @@ ns <- 2  # stocks
 na <- 36 # ages: 0, 1, 2, ... 35
 nm <- 4  # seasons
 
-len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes")
-nl <- nrow(len_bin) # 16
+len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes") %>%
+  filter(LengthClass <= 300)
+nl <- nrow(len_bin) # 12
 
 # MSA object for model structure
 Dmodel <- new(
@@ -41,7 +42,7 @@ Dmodel <- new(
   nl = nl,
   nr = nr,
   ns = ns,
-  lbin = len_bin$LengthClass, # Length-16
+  lbin = len_bin$LengthClass, # Length-12
   lmid = len_bin$LengthClass + 0.5 * unique(diff(len_bin$LengthClass)),
   Fmax = 3,
   y_phi = 1,
@@ -266,8 +267,13 @@ Dfishery@Cinit_mfr <- array(0.5 *Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfish
 
 
 #### Fishery data - CAL ----
-len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes")
+
+# Exclude length bins > 300 cm (negligible)
+
+#len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes") %>%
+#  filter(LengthClass <= 300)
 CAL <- readxl::read_excel(xlsx_file, sheet = "Length_Comp") %>%
+  filter(Len_class <= max(len_bin$Number)) %>%
   mutate(y = Year - ModelYear[1] + 1) %>%
   as.matrix()
 stopifnot(length(unique(CAL[, "Len_class"])) == nrow(len_bin))
@@ -344,7 +350,8 @@ index_names <- summarise(
 ) %>%
   mutate(Name2 = paste0("(", 1:nrow(.), ") ", Name)) %>%
   filter(Name %in% index_use) %>%
-  mutate(i = max(cpue_value[, "i"]) + as.numeric(match(Name, index_use)))
+  mutate(i = max(cpue_value[, "i"]) + as.numeric(match(Name, index_use))) %>%
+  mutate(Type = ifelse(grepl("FR_AER_SUV", Name), "age_2_4", Type))
 
 index_value <- index %>%
   filter(Name %in% index_use) %>%
@@ -602,7 +609,7 @@ Dlabel <- new(
 
 
 #### Save objects
-dir_save <- "model_input/06.03.2026"
+dir_save <- "model_input/06.30.2026"
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))

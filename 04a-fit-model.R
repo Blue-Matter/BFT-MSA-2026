@@ -12,13 +12,14 @@ Design <- data.frame(
   dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),                               # Lambda factor for stock of origin
   SC_set = c(1, 1, 2, 2, 1),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
   SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
-  output_name = c("reference1_06.22.2026", "Wprior1_06.22.2026",      # File name of output
-                  "reference2_06.22.2026", "Wprior2_06.22.2026",
-                  "highinitC_06.22.2026"),
+  output_name = c("reference1_", "Wprior1_",      # File name of output
+                  "reference2_", "Wprior2_",
+                  "highinitC_") %>%
+    paste0("06.30.2026"),
   model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior", # Model name (for figures later on)
                  "SOO1 + SSBprior + High inital Catch")
 )
-readr::write_csv(Design, "tables/Design_06.22.2026.csv")
+readr::write_csv(Design, "tables/Design_06.30.2026.csv")
 
 # Wrapper function that will fit a model for each row in the Design data frame ----
 wrapper_fn <- function(x = 1, Design) {
@@ -26,7 +27,7 @@ wrapper_fn <- function(x = 1, Design) {
   require(multiSA)
   require(tidyverse)
 
-  dir_save <- "model_input/06.03.2026"
+  dir_save <- "model_input/06.30.2026"
 
   #### Make MSA data object from saved objects ----
   if (Design$SC_set[x] == 1) {
