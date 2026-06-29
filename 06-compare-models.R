@@ -75,7 +75,20 @@ g <- SSB %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
 
-
+# Recruitment
+rec <- lapply(1:nrow(Design), function(i) {
+  plot_R(fits[[i]], figure = FALSE) %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(model = factor(model, Design$model_name))
+g <- rec %>%
+  mutate(year = as.numeric(year)) %>%
+  ggplot(aes(year, R)) +
+  facet_grid(vars(stock), vars(model), scales = "free_y") +
+  geom_line() +
+  labs(x = "Year", y = "Recruitment")
+ggsave("figures/fit/compare_rec.png", g, height = 4, width = 6)
 
 
 
