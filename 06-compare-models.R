@@ -90,6 +90,23 @@ g <- rec %>%
   labs(x = "Year", y = "Recruitment")
 ggsave("figures/fit/compare_rec.png", g, height = 4, width = 6)
 
+# Selectivity
+dat <- get_MSAdata(fits[[1]])
+sel <- lapply(1:nrow(Design), function(i) {
+  plot_self(fits[[i]], f = 1:18, figure = FALSE) %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(model = factor(model, Design$model_name),
+         fleet = factor(fleet, dat@Dlabel@fleet))
+g <- sel %>%
+  #mutate(year = as.numeric(year)) %>%
+  ggplot(aes(length, sel, colour = model)) +
+  facet_wrap(vars(fleet), ncol = 3) +
+  geom_line() +
+  labs(x = "Length", y = "Selectivity", colour = NULL) +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_sel.png", g, height = 8, width = 6)
 
 
 # Aggregate fit to all indices
