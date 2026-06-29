@@ -90,6 +90,24 @@ g <- rec %>%
   labs(x = "Year", y = "Recruitment")
 ggsave("figures/fit/compare_rec.png", g, height = 4, width = 6)
 
+recdev <- lapply(1:nrow(Design), function(i) {
+  lapply(1:2, function(s) {
+    plot_Rdev(fits[[i]], figure = FALSE, s = s) %>%
+      mutate(model = Design$model_name[i])
+  }) %>%
+    bind_rows()
+}) %>%
+  bind_rows() %>%
+  mutate(model = factor(model, Design$model_name))
+
+g <- recdev %>%
+  mutate(year = as.numeric(year)) %>%
+  ggplot(aes(year, dev)) +
+  facet_grid(vars(stock), vars(model), scales = "free_y") +
+  geom_line() +
+  labs(x = "Year", y = "Recruitment deviation")
+ggsave("figures/fit/compare_recdev.png", g, height = 4, width = 6)
+
 # Selectivity
 dat <- get_MSAdata(fits[[1]])
 sel <- lapply(1:nrow(Design), function(i) {
@@ -108,6 +126,59 @@ g <- sel %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_sel.png", g, height = 8, width = 6)
 
+# SRR
+SRR <- lapply(1:nrow(Design), function(i) {
+  lapply(1:2, function(s) {
+    fit <- fits[[i]]
+    dat <- get_MSAdata(fit)
+    Dlabel <- get_MSAdata(fit)@Dlabel
+
+    S_y <- apply(fit@report$S_yrs[, , s, drop = FALSE], 1, sum)
+    R_y <- fit@report$R_ys[, s]
+
+    Rpred_y <- R_y/fit@report$Rdev_ys[, s]
+
+    a <- fit@report$sralpha_s[s]
+    b <- fit@report$srbeta_s[s]
+
+    S_SRR <- seq(0, max(S_y), length.out = 100)
+    R_SRR <- calc_recruitment(S_SRR, SRR = dat@Dstock@SRR_s[s], a = a, b = b)
+
+    S2 <- S_y[-1]
+    R2 <- Rpred_y[-1]
+
+    list(
+      hist = data.frame(year = dat@Dlabel@year, S = S_y, R = R_y,
+                        model = Design$model_name[i],
+                        stock = dat@Dlabel@stock[s]),
+      pred = data.frame(S = S_SRR, R = R_SRR, model = Design$model_name[i],
+                        stock = dat@Dlabel@stock[s]),
+      phi = data.frame(phi = fit@report$phi_s[s], model = Design$model_name[i],
+                       stock = dat@Dlabel@stock[s])
+    )
+  })
+})
+
+SRR_hist <- lapply(SRR, function(i) lapply(i, getElement, 'hist') %>%
+                     bind_rows()) %>%
+  bind_rows()
+SRR_pred <- lapply(SRR, function(i) lapply(i, getElement, 'pred') %>%
+                     bind_rows()) %>%
+  bind_rows()
+
+SRR_phi <- lapply(SRR, function(i) lapply(i, getElement, 'phi') %>%
+                     bind_rows()) %>%
+  bind_rows()
+
+g <- ggplot(SRR_hist, aes(S, R)) +
+  geom_line(data = SRR_pred) +
+  geom_abline(data = SRR_phi, aes(intercept = 0, slope = 1/phi), linetype = 2) +
+  geom_point(size = 1, stroke = 0.1, shape = 21, aes(fill = year)) +
+  facet_grid(vars(stock), vars(model)) +
+  scale_fill_viridis_c() +
+  theme(legend.position = "bottom") +
+  labs(x = "Spawning biomass", y = "Recruitment", fill = "Year")
+ggsave("figures/fit/compare_SRR.png", g, height = 4, width = 6)
 
 # Aggregate fit to all indices
 index_all <- lapply(1:length(fits), function(i) {
