@@ -11,7 +11,7 @@ fits <- lapply(1:nrow(Design), function(i) {
 # Convergence
 lapply(fits, function(i) i@SD$pdHess)
 
-# Likelihoods
+# Likelihoods ----
 like <- lapply(fits, multiSA:::get_likelihood_components) %>%
   bind_rows() %>%
   as.matrix() %>%
@@ -35,7 +35,7 @@ R0_df <- sapply(fits, function(i) i@report[[var_name]]) %>%
   mutate(ratio = round(EBFT/WBFT, 2))
 write.csv(R0_df, file = "tables/compare_R0.csv")
 
-# Compare SSB
+# Compare SSB in spawning season ----
 SSB <- lapply(1:nrow(Design), function(i) {
   plot_S(fits[[i]], s = 1:2, figure = FALSE) %>%
     mutate(model = Design$model_name[i])
@@ -75,7 +75,7 @@ g <- SSB %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
 
-# Recruitment
+# Recruitment ----
 rec <- lapply(1:nrow(Design), function(i) {
   plot_R(fits[[i]], figure = FALSE) %>%
     mutate(model = Design$model_name[i])
@@ -103,12 +103,14 @@ recdev <- lapply(1:nrow(Design), function(i) {
 g <- recdev %>%
   mutate(year = as.numeric(year)) %>%
   ggplot(aes(year, dev)) +
-  facet_grid(vars(stock), vars(model), scales = "free_y") +
   geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = 2) +
+  facet_grid(vars(stock), vars(model), scales = "free_y") +
   labs(x = "Year", y = "Recruitment deviation")
 ggsave("figures/fit/compare_recdev.png", g, height = 4, width = 6)
 
-# Selectivity
+# Selectivity ----
 dat <- get_MSAdata(fits[[1]])
 sel <- lapply(1:nrow(Design), function(i) {
   plot_self(fits[[i]], f = 1:18, figure = FALSE) %>%
@@ -126,7 +128,7 @@ g <- sel %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_sel.png", g, height = 8, width = 6)
 
-# SRR
+# SRR ----
 SRR <- lapply(1:nrow(Design), function(i) {
   lapply(1:2, function(s) {
     fit <- fits[[i]]
@@ -197,7 +199,7 @@ index_all <- lapply(1:length(fits), function(i) {
 
 unique_ind <- unique(index_all$name)
 
-# CPUE
+# CPUE ----
 g <- index_all %>%
   filter(name %in% unique_ind[1:16]) %>%
   ggplot(aes(year, obs)) +
@@ -212,7 +214,7 @@ g <- index_all %>%
 ggsave("figures/fit/compare_CPUE_fit.png", g, width = 6, height = 8)
 
 
-# Fishery-independent indices
+# Fishery-independent indices ----
 g <- index_all %>%
   filter(!name %in% unique_ind[1:16]) %>%
   ggplot(aes(year, obs)) +
@@ -226,7 +228,7 @@ g <- index_all %>%
   guides(colour = guide_legend(ncol = 2))
 ggsave("figures/fit/compare_index_fit.png", g, width = 6, height = 6)
 
-# SOO
+# SOO ----
 aa <- c("0-4", "5-8", "9+")
 soo <- lapply(1:length(fits), function(i) {
   dat <- get_MSAdata(fits[[i]])
@@ -255,12 +257,14 @@ soo1_pred <- soo %>%
   filter(stock == "WBFT") %>%
   filter(model %in% Design$model_name[1:2]) %>%
   #filter(grepl("SOO1", model)) %>%
+  mutate(season = paste("Season", 4 * (year - floor(year)) + 1)) %>%
   mutate(Age = paste("Age", Age)) %>%
   filter(!is.na(pred), pred > 0)
 soo1_obs <- soo %>%
   filter(stock == "WBFT") %>%
   filter(model %in% Design$model_name[1:2]) %>%
   #filter(grepl("SOO1", model)) %>%
+  mutate(season = paste("Season", 4 * (year - floor(year)) + 1)) %>%
   mutate(Age = paste("Age", Age)) %>%
   filter(!is.na(obs))
 
@@ -280,20 +284,44 @@ g <- soo1_pred %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
 
+# By age class
+g <- soo1_pred %>%
+  filter(Age == "Age 9+") %>%
+  ggplot(aes(year, pred)) +
+  geom_line(aes(colour = model)) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(data = filter(soo1_obs, Age == "Age 9+"),
+             aes(y = obs, fill = Fleet), shape = 21, size = 1) +
+  geom_line(data = filter(soo1_obs, Age == "Age 9+"),
+            aes(y = obs, linetype = Fleet), linetype = 0.15) +
+  facet_grid(vars(region), vars(season)) +
+  coord_cartesian(ylim = c(0, 1)) +
+  scale_fill_manual(values = c("black", "white")) +
+  labs(x = "Year", y = "Proportion WBFT",
+       colour = "Model prediction",
+       linetype = "Data", fill = "Data",
+       title = "Stock of origin (Set 1, Age 9+)") +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_SOO1_fit_a3.png", g, height = 5, width = 8)
+
+
 
 soo2_pred <- soo %>%
   filter(stock == "WBFT") %>%
   #filter(model %in% Design$model_name[3:4]) %>%
   filter(grepl("SOO2", model)) %>%
+  mutate(season = paste("Season", 4 * (year - floor(year)) + 1)) %>%
   mutate(Age = paste("Age", Age)) %>%
   filter(!is.na(pred), pred > 0)
 soo2_obs <- soo %>%
   filter(stock == "WBFT") %>%
   #filter(model %in% Design$model_name[3:4]) %>%
   filter(grepl("SOO2", model)) %>%
+  mutate(season = paste("Season", 4 * (year - floor(year)) + 1)) %>%
   mutate(Age = paste("Age", Age)) %>%
   filter(!is.na(obs))
 
+# All age classes together
 g <- soo2_pred %>%
   ggplot(aes(year, pred)) +
   geom_line(aes(colour = model), linewidth = 0.15) +
@@ -310,7 +338,29 @@ g <- soo2_pred %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
 
-# Tag transitions
+# By age class
+g <- soo2_pred %>%
+  filter(Age == "Age 9+") %>%
+  ggplot(aes(year, pred)) +
+  geom_line(aes(colour = model)) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(data = filter(soo2_obs, Age == "Age 9+"),
+             aes(y = obs, fill = Fleet), shape = 21, size = 1) +
+  geom_line(data = filter(soo2_obs, Age == "Age 9+"),
+            aes(y = obs, linetype = Fleet), linewidth = 0.15) +
+  facet_grid(vars(region), vars(season)) +
+  coord_cartesian(ylim = c(0, 1)) +
+  scale_fill_manual(values = c("black", "white")) +
+  labs(x = "Year", y = "Proportion WBFT",
+       colour = "Model prediction",
+       linetype = "Data", fill = "Data",
+       title = "Stock of origin (Set 2, Age 9+)") +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_SOO2_fit_a3.png", g, height = 5, width = 8)
+
+
+
+# Tag transitions ----
 tags <- lapply(1:length(fits), function(i) {
 
   lapply(1:3, function(ac) {
@@ -394,7 +444,7 @@ g <- filter(tags, stock == "WBFT", model %in% Design$model_name[1:4]) %>%
   plot_tags(title = "WBFT")
 ggsave("figures/fit/compare_tag_WBFT.png", g, height = 6, width = 6)
 
-# CAL
+# CAL ----
 dat <- get_MSAdata(fits[[1]])
 CAL <- lapply(1:length(fits), function(i) {
 
@@ -445,7 +495,48 @@ g <- CAL_agg %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_CAL_agg_fit.png", g, height = 8, width = 6)
 
-# Plot movement
+# Mean length ----
+panel_factor <- outer(dat@Dlabel@fleet, dat@Dlabel@region, function(i, j) paste(i, j, sep = ": ")) %>%
+  t() %>%
+  as.character()
+
+mlen <- lapply(1:length(fits), function(i) {
+
+  lapply(1:dat@Dfishery@nf, function(f) {
+    lapply(1:dat@Dmodel@nr, function(r) {
+      x <- plot_CAL(fits[[i]], f = f, r = r, do_mean = TRUE, figure = FALSE)
+      if (is.null(x)) x <- data.frame()
+      return(x)
+    }) %>%
+      bind_rows()
+  }) %>%
+    bind_rows() %>%
+    mutate(model = Design$model_name[i])
+
+}) %>%
+  bind_rows() %>%
+  mutate(fleet = factor(fleet, dat@Dlabel@fleet)) %>%
+  mutate(region = factor(region, dat@Dlabel@region)) %>%
+  arrange(year) %>%
+  mutate(panel = paste(fleet, region, sep = ": ") %>% factor(panel_factor))
+
+for (i in 1:4) {
+  g <- mlen %>%
+    filter(model == Design$model_name[i]) %>%
+    filter(!is.na(pred)) %>%
+    ggplot(aes(year, pred)) +
+    geom_point(alpha = 0.5, shape = 1, aes(y = obs)) +
+    geom_line(data = filter(mlen, !is.na(obs)), linewidth = 0.1, aes(y = obs)) +
+    geom_line(colour = "red") +
+    facet_wrap(vars(panel), ncol = 4) +
+    theme(legend.position = "bottom") +
+    labs(x = "Year", y = "Mean length",
+         title = Design$model_name[i],
+         fill = NULL, colour = NULL)
+  ggsave(paste0("figures/fit/mlen_model", i, ".png"), g, height = 8, width = 6)
+}
+
+# Plot movement ----
 mov <- lapply(1:nrow(Design), function(i) {
   lapply(1:2, function(s) {
     plot_mov(fits[[i]], s = s, figure = FALSE)
@@ -462,16 +553,19 @@ plot_mov_gg <- function(mov) {
   val <- seq(0, 1, 0.01)
   cols <- hcl.colors(length(val), palette = "Peach", rev = TRUE) %>% structure(names = val)
 
+  unique_areas <- unique(mov$Origin)
+  areas <- c(unique_areas, "", "Eq.")
+
   g <- mov %>%
     mutate(x = match(Destination, areas), yy = match(Origin, areas)) %>%
     ggplot(aes(x, yy, fill = round(proportion, 2) %>% factor())) +
     geom_tile(colour = "black") +
-    geom_text(size = 2.25, aes(label = round(proportion, 2))) +
+    geom_text(size = 2.75, aes(label = round(proportion, 2) %>% format())) +
     facet_grid(vars(model), vars(Season)) +
     scale_fill_manual(values = cols) +
     guides(fill = "none") +
     scale_x_continuous(breaks = 1:length(areas), labels = areas) +
-    scale_y_continuous(breaks = 1:4, labels = areas[1:4]) +
+    scale_y_continuous(breaks = 1:length(unique_areas), labels = areas[1:length(unique_areas)]) +
     coord_transform(reverse = "y", expand = FALSE) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
     labs(x = "Destination", y = "Origin", fill = "Proportion")
@@ -479,13 +573,13 @@ plot_mov_gg <- function(mov) {
 }
 
 g <- mov %>%
-  filter(stock == "EBFT") %>%
+  filter(stock == "EBFT", Origin != "GOM", Destination != "GOM") %>%
   plot_mov_gg() +
   labs(title = "EBFT")
 ggsave("figures/fit/compare_mov_EBFT.png", g, height = 6, width = 6)
 
 g <- mov %>%
-  filter(stock == "WBFT") %>%
+  filter(stock == "WBFT", Origin != "MED", Destination != "MED") %>%
   plot_mov_gg() +
   labs(title = "WBFT")
 ggsave("figures/fit/compare_mov_WBFT.png", g, height = 6, width = 6)
@@ -510,7 +604,7 @@ g <- Cresid %>%
   facet_wrap(vars(model), ncol = 3) +
   labs(x = "Catch residual")
 
-# Depletion
+# Depletion ----
 S_S0 <- lapply(1:nrow(Design), function(i) {
   dat <- get_MSAdata(fits[[i]])
   S_ys <- apply(fits[[i]]@report$S_yrs, c(1, 3), sum)
@@ -532,7 +626,7 @@ g <- S_S0 %>%
   labs(y = expression(S/S[0]))
 ggsave("figures/fit/compare_depletion.png", g, height = 3.5, width = 5)
 
-# SSB by season
+# SSB by season ----
 SB_season <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
@@ -574,7 +668,7 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
 }
 
-# Total biomass by season
+# Total biomass by season ----
 if (FALSE) {
   B_season <- lapply(1:nrow(Design), function (i) {
     dat <- get_MSAdata(fits[[i]])
@@ -597,11 +691,11 @@ if (FALSE) {
       labs(x = "Year", y = "Total biomass", fill = "Stock", title = Design$model_name[i]) +
       scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
       theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
-    ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+    ggsave(paste0("figures/fit/B_area_season_model", i, ".png"), g, height = 5, width = 6)
   }
 }
 
-# Calculate seasonal, spatial exploitation rates
+# Calculate seasonal, spatial exploitation rates ----
 u <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
@@ -652,7 +746,7 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/spatial_exploitation_model", i, ".png"), g, height = 5, width = 6)
 }
 
-# Calculate seasonal, spatial F
+# Calculate seasonal, spatial F ----
 FF <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
@@ -683,7 +777,7 @@ for (i in 1:nrow(Design)) {
 }
 
 
-# Calculate seasonal, spatial F at age
+# Calculate seasonal, spatial F at age ----
 # F is identical between stocks, what matters is availability (whether the fish are there or not)
 FF_age <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
@@ -713,7 +807,7 @@ for (i in 1:nrow(Design)) {
   ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
 }
 
-# Catch at age - aggregate across both stocks
+# Catch at age - aggregate across both stocks ----
 CAA <- lapply(1:nrow(Design), function (i) {
   fit <- fits[[i]]
   dat <- get_MSAdata(fit)
