@@ -40,12 +40,16 @@ if (FALSE) {
       variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi",
                    #"loglike_SC_ymafr",
                    "loglike_SC_genetic", "loglike_SC_otolith",
-                   "loglike_tag_mov_ymars", "logprior", "logprior_par",
+                   "loglike_tag_mov_ymars", "logprior",
+                   "logprior_spatial", "logprior_sel", "logprior_SSB",
+                   #"logprior_par",
                    "logprior_rdev_ys", "penalty", "objective"),
       variable2 = c("All likelihoods", "Like: Length composition", "Like: Indices",
                     #"Like: SOO",
                     "Like: SOO genetic", "Like: SOO otolith",
-                    "Like: Tags", "All priors", "Pr: spatial + sel + SSB prior",
+                    "Like: Tags", "All priors",
+                    #"Pr: spatial + sel + SSB prior",
+                    "Pr: Spatial", "Pr: Selectivity", "Pr: SSB",
                     "Pr: Rec devs", "Penalty", "Objective")
     )
 
@@ -58,6 +62,18 @@ if (FALSE) {
       p$fits,
       function(i) sum(i@report$loglike_SC_ymafr[, , , 2, ])
     )
+    prof_df$logprior_spatial <- sapply(p$fits, function(i) {
+      ind <- grepl("calc_eqdist", names(i@report$logprior_par))
+      sum(i@report$logprior_par[ind])
+    })
+    prof_df$logprior_sel <- sapply(p$fits, function(i) {
+      ind <- grepl("p$sel", names(i@report$logprior_par))
+      sum(i@report$logprior_par[ind])
+    })
+    prof_df$logprior_SSB <- sapply(p$fits, function(i) {
+      ind <- grepl("S_yrs", names(i@report$logprior_par))
+      sum(i@report$logprior_par[ind])
+    })
 
     g <- reshape2::melt(prof_df, id.vars = c("R0_s[2]")) %>%
       mutate(value = ifelse(grepl("log", variable), -1 * value, value)) %>%
@@ -79,11 +95,11 @@ if (FALSE) {
 
   g <- plot_profile(p) +
     ggtitle("SOO1 + SSB prior")
-  ggsave("figures/profile/WR0_SOO1_components.png", g, width = 8, height = 5)
+  ggsave("figures/profile/WR0_SOO1_components.png", g, width = 7, height = 7)
 
   p <- readRDS(file = file.path("profile", "Wprior2_WBFT_R0_06.22.2026.rds"))
   g <- plot_profile(p) +
     ggtitle("SOO2 + SSB prior")
-  ggsave("figures/profile/WR0_SOO2_components.png", g, width = 8, height = 5)
+  ggsave("figures/profile/WR0_SOO2_components.png", g, width = 7, height = 7)
 
 }
