@@ -128,6 +128,35 @@ g <- sel %>%
   theme(legend.position = "bottom")
 ggsave("figures/fit/compare_sel.png", g, height = 8, width = 6)
 
+seli <- lapply(1:nrow(Design), function(i) {
+  lapply(1:23, function(ii) {
+    plot_seli(fits[[i]], i = ii, figure = FALSE)
+  }) %>%
+    bind_rows() %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(model = factor(model, Design$model_name),
+         name = factor(name, dat@Dlabel@index))
+
+g <- seli %>%
+  filter(!is.na(length)) %>%
+  ggplot(aes(length, sel, colour = model)) +
+  facet_wrap(vars(name), ncol = 3) +
+  geom_line() +
+  labs(x = "Length", y = "Selectivity", colour = NULL) +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_sel_cpue.png", g, height = 8, width = 6)
+
+g <- seli %>%
+  filter(is.na(length)) %>%
+  ggplot(aes(age, sel)) +
+  facet_wrap(vars(name), ncol = 3) +
+  geom_line() +
+  labs(x = "Age", y = "Selectivity") +
+  theme(legend.position = "bottom")
+ggsave("figures/fit/compare_sel_index.png", g, height = 5, width = 6)
+
 # SRR ----
 SRR <- lapply(1:nrow(Design), function(i) {
   lapply(1:2, function(s) {
