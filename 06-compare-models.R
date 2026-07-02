@@ -2,7 +2,7 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_06.22.2026.csv")[1:4, ]
+Design <- readr::read_csv("tables/Design_06.30.2026.csv")[1:4, ]
 
 fits <- lapply(1:nrow(Design), function(i) {
   readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))

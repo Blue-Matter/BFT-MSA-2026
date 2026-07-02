@@ -8,7 +8,7 @@ library(parallel)
 # Data frame to describe multiple model runs (unique configuration in each row) ----
 Design <- data.frame(
   initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1),                            # Equilibrium catch (proportion to first year catch)
-  dw_CAL = 1,                                                         # Lambda factor for length composition
+  dw_CAL = 0.01,                                                      # Lambda factor for length composition
   dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),                               # Lambda factor for stock of origin
   SC_set = c(1, 1, 2, 2, 1),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
   SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
@@ -50,8 +50,13 @@ wrapper_fn <- function(x = 1, Design) {
   # Downweight CAL
   dat@Dfishery@lambdaCAL_f <- Design$dw_CAL[x]
 
+  # Set multinomial sample size to log(N)
+  dat@Dfishery@CALN_ymfr[] <- apply(dat@Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum) |> log()
+  dat@Dfishery@CALN_ymfr[is.infinite(dat@Dfishery@CALN_ymfr)] <- 0
+
   # Downweight SC
   dat@Dfishery@lambdaSC_f <- Design$dw_SC[x]
+  dat@Dfishery@SCstdev_ymafrs[] <- dat@Dfishery@SCstdev_ymafrs + 0.1
 
   # Rescale equilibrium catch
   dat@Dfishery@Cinit_mfr <- array(
@@ -72,7 +77,7 @@ wrapper_fn <- function(x = 1, Design) {
 
   parameters_start <- list(
     log_recdist_rs = log_recdist_rs,
-    R0_s = c(5000, 1000),
+    R0_s = c(5000, 200),
     h_s = c(0.99, 0.6),
     log_sdr_s = log(c(0.5, 0.5))
   )
@@ -176,10 +181,14 @@ wrapper_fn <- function(x = 1, Design) {
 
   # With WBFT SSB prior
   if (Design$SSB_prior[x]) {
+    dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), 2, dat@Dsurvey@ni] <- 0.05
     dat@Dmodel@prior <- c(
       dat@Dmodel@prior,
-      paste0("dnorm(log(sum(S_yrs[", match(2018, dat@Dlabel@year), ", , 2])), log(22000), 0.05, log = TRUE)")
+      paste0("dnorm(log(q_i[", dat@Dsurvey@ni, "]), log(1), 0.01, log = TRUE)")
     )
+  } else {
+    dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
+    dat@Dsurvey@lambdaI_i[dat@Dsurvey@ni] <- 0
   }
 
   # Fit model
@@ -220,7 +229,8 @@ if (do_parallel) {
   tictoc::tic()
   fits <- parallel::parLapplyLB(
     cl,
-    X = 1:nrow(Design),
+    X = c(2, 4, 5),
+    #X = 1:nrow(Design),
     wrapper_fn,
     Design = Design
   )
