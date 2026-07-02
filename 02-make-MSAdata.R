@@ -282,7 +282,7 @@ Dfishery@CALobs_ymlfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dmodel@nl, Dfishery@nf
 
 Dfishery@CALobs_ymlfr[CAL[, c("y", "Season", "Len_class", "Fleet", "Area")]] <- CAL[, "N"]
 Dfishery@CALN_ymfr <- apply(Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum)
-Dfishery@CALN_ymfr <- pmin(Dfishery@CALN_ymfr, 50)
+Dfishery@CALN_ymfr <- pmin(Dfishery@CALN_ymfr, 50) # set maximum but will redo further when fitting model
 
 Dfishery@fcomp_like <- "lognormal"
 
@@ -361,7 +361,9 @@ index_value <- index %>%
   select(!Name & !Type) %>%
   as.matrix()
 
-Dsurvey@ni <- length(unique(cpue_value[, "i"])) + length(unique(index_value[, "i"]))
+# Surveys are CPUE, indices, and CKMRs
+Dsurvey@ni <- length(unique(cpue_value[, "i"])) +
+  length(unique(index_value[, "i"])) + 1
 Dsurvey@Iobs_ymi <- Dsurvey@Isd_ymi <- array(NA_real_, c(Dmodel@ny, Dmodel@nm, Dsurvey@ni))
 
 Dsurvey@Iobs_ymi[cpue_value[, c("y", "Season", "i")]] <- cpue_value[, "Index"]
@@ -369,6 +371,10 @@ Dsurvey@Iobs_ymi[index_value[, c("y", "Season", "i")]] <- index_value[, "Index"]
 
 Dsurvey@Isd_ymi[cpue_value[, c("y", "Season", "i")]] <- cpue_value[, "CV"]
 Dsurvey@Isd_ymi[index_value[, c("y", "Season", "i")]] <- index_value[, "CV"]
+
+#### CKMR index
+Dsurvey@Iobs_ymi[match(2018, ModelYear), Dstock@m_spawn, Dsurvey@ni] <- 18000
+Dsurvey@Isd_ymi[match(2018, ModelYear), Dstock@m_spawn, Dsurvey@ni] <- 0.18
 
 Dsurvey@unit_i <- rep("B", Dsurvey@ni) # All indices have biomass units
 
@@ -390,12 +396,15 @@ index_names_matrix <- index_names %>%
   as.matrix()
 index_samp[index_names_matrix[, c("i", "Area", "Stock")]] <- 1
 
-Dsurvey@samp_irs <- abind::abind(cpue_samp, index_samp, along = 1)
+CKMR_samp <- array(0, c(1, nr, ns))
+CKMR_samp[, , 2] <- 1
+
+Dsurvey@samp_irs <- abind::abind(cpue_samp, index_samp, CKMR_samp, along = 1)
 
 # Selectivity of indices
 # For CPUE, identify the fleet, also size range if necessary
 # For stock-specific indices, identify either B and SB
-Dsurvey@sel_i <- c(cpue_names$Fleet2, index_names$Type)
+Dsurvey@sel_i <- c(cpue_names$Fleet2, index_names$Type, "age_8_35")
 
 mutate(cpue_names, Fleet_mirror = fleet_names$FleetName[cpue_names$Fleet])
 
@@ -599,7 +608,7 @@ Dlabel <- new(
   region = area_names$Name,
   stock = c("EBFT", "WBFT"),
   fleet = fleet_names$FleetName,
-  index = c(cpue_names$Name2, index_names$Name2)
+  index = c(cpue_names$Name2, index_names$Name2, "WBFT CKMR")
 )
 
 
