@@ -19,6 +19,9 @@ ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%
 fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
   mutate(FleetName = paste0(Number, ": ", Code))
 
+# Set PSNOR to logistic
+fleet_names$Selectivity[grepl('PSNOR', fleet_names$Code)] <- "Logistic"
+
 #### Model Settings (Years, Age, Areas, Stocks, Seasons, Length bins, Priors) ----
 MetaData <- readxl::read_excel(xlsx_file, sheet = "Meta_Data")
 ModelYear <- seq(1950, 2025)
@@ -273,6 +276,7 @@ Dfishery@Cinit_mfr <- array(0.5 *Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfish
 #len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes") %>%
 #  filter(LengthClass <= 300)
 CAL <- readxl::read_excel(xlsx_file, sheet = "Length_Comp") %>%
+  filter(!(Fleet == 8 & Year < 1970)) %>%
   filter(Len_class <= max(len_bin$Number)) %>%
   mutate(y = Year - ModelYear[1] + 1) %>%
   as.matrix()

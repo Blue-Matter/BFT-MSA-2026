@@ -203,6 +203,7 @@ ggsave("figures/data/Cobs_spoolup.png", g, height = 4, width = 6)
 ## CAL ----
 len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes")
 CAL <- readxl::read_excel(xlsx_file, sheet = "Length_Comp") %>%
+  filter(!(Fleet == 8 & Year < 1970)) %>%
   mutate(Bin = len_bin$LengthClass[Len_class]) %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name),
          Fleet = factor(fleet_names$FleetName[Fleet], fleet_names$FleetName)) %>%
