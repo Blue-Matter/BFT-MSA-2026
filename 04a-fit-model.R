@@ -9,17 +9,47 @@ library(parallel)
 Design <- data.frame(
   initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1),                            # Equilibrium catch (proportion to first year catch)
   dw_CAL = 0.01,                                                      # Lambda factor for length composition
-  dw_SC = c(0.1, 0.1, 0.01, 0.01, 0.1),                               # Lambda factor for stock of origin
+  dw_SC = c(0.01, 0.01, 0.01, 0.01, 0.01),                            # Lambda factor for stock of origin
   SC_set = c(1, 1, 2, 2, 1),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
+  SC_subset = "all",
   SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
   output_name = c("reference1_", "Wprior1_",      # File name of output
                   "reference2_", "Wprior2_",
                   "highinitC_") %>%
     paste0("06.30.2026"),
-  model_name = c("SOO1", "SOO1 + SSB prior", "SOO2", "SOO2 + SSB prior", # Model name (for figures later on)
+  model_name = c("SOO1", "SOO1 + W CKMR", "SOO2", "SOO2 + W CKMR", # Model name (for figures later on)
                  "SOO1 + SSBprior + High inital Catch")
 )
 readr::write_csv(Design, "tables/Design_06.30.2026.csv")
+
+# Data frame to describe multiple model runs (unique configuration in each row) ----
+Design <- data.frame(
+  initC_scalar = c(0.5, 0.5, 0.5, 0.5),                            # Equilibrium catch (proportion to first year catch)
+  dw_CAL = 0.01,                                                   # Lambda factor for length composition
+  dw_SC = c(0.1),                                                  # Lambda factor for stock of origin
+  SC_set = c(1, 1, 2, 2),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
+  SC_subset = "all",
+  SSB_prior = c(FALSE, TRUE, FALSE, TRUE),                         # Whether to include WBFT SSB prior
+  output_name = c("reference1_", "Wprior1_",      # File name of output
+                  "reference2_", "Wprior2_") %>%
+    paste0("07.03.2026"),
+  model_name = c("SOO1", "SOO1 + W CKMR", "SOO2", "SOO2 + W CKMR")
+)
+readr::write_csv(Design, "tables/Design_07.03.2026.csv")
+
+Design <- data.frame(
+  initC_scalar = c(0.5, 0.5, 0.5, 0.5),                            # Equilibrium catch (proportion to first year catch)
+  dw_CAL = 0.01,                                                   # Lambda factor for length composition
+  dw_SC = c(0.1),                                                  # Lambda factor for stock of origin
+  SC_set = c(1, 1, 2, 2),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
+  SC_subset = c("otolith", "genetic", "otolith", "genetic"),
+  SSB_prior = c(TRUE, TRUE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
+  output_name = c("SOO1_oto_", "SOO1_gen_",      # File name of output
+                  "SOO2_oto_", "SOO2_gen_") %>%
+    paste0("07.03.2026a"),
+  model_name = c("SOO1 otolith", "SOO1 genetic", "SOO2 otolith", "SOO2 genetic")
+)
+readr::write_csv(Design, "tables/Design_07.03.2026a.csv")
 
 # Wrapper function that will fit a model for each row in the Design data frame ----
 wrapper_fn <- function(x = 1, Design) {
@@ -55,8 +85,11 @@ wrapper_fn <- function(x = 1, Design) {
   dat@Dfishery@CALN_ymfr[is.infinite(dat@Dfishery@CALN_ymfr)] <- 0
 
   # Downweight SC
-  dat@Dfishery@lambdaSC_f <- Design$dw_SC[x]
+  dat@Dfishery@lambdaSC_f <- rep(Design$dw_SC[x], 2)
   dat@Dfishery@SCstdev_ymafrs[] <- dat@Dfishery@SCstdev_ymafrs + 0.1
+
+  if (Design$SC_subset[x] == "otolith") dat@Dfishery@lambdaSC_f[2] <- 0 # Set genetic to zero
+  if (Design$SC_subset[x] == "genetic") dat@Dfishery@lambdaSC_f[1] <- 0 # Set otolith to zero
 
   # Rescale equilibrium catch
   dat@Dfishery@Cinit_mfr <- array(
@@ -77,7 +110,8 @@ wrapper_fn <- function(x = 1, Design) {
 
   parameters_start <- list(
     log_recdist_rs = log_recdist_rs,
-    R0_s = c(5000, 200),
+    #R0_s = c(5000, 1000),
+    R0_s = c(5000, 5000),
     h_s = c(0.99, 0.6),
     log_sdr_s = log(c(0.5, 0.5))
   )
@@ -225,12 +259,11 @@ do_parallel <- TRUE
 
 if (do_parallel) {
 
-  cl <- parallel::makeCluster(3) # Need to limit the number of cores due to memory constraints
+  cl <- parallel::makeCluster(4) # Need to limit the number of cores due to memory constraints
   tictoc::tic()
   fits <- parallel::parLapplyLB(
     cl,
-    X = c(2, 4, 5),
-    #X = 1:nrow(Design),
+    X = 1:nrow(Design),
     wrapper_fn,
     Design = Design
   )
