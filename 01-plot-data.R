@@ -1,8 +1,6 @@
 
 library(readxl)
 library(tidyverse)
-library(maps)
-library(mapdata)
 
 ## Master file to organize most model settings
 xlsx_file <- file.path("data", "1_M3_data", "ICCAT_MSA_Data_2026Apr_v1.xlsx")
@@ -26,6 +24,9 @@ xlsx_file <- file.path("data", "1_M3_data", "ICCAT_MSA_Data_2026Apr_v1.xlsx")
 # Taken from BFT_Stock_Area_Assign.r
 
 if (FALSE) {
+
+  library(maps)
+  library(mapdata)
 
   #DEFINED STOCK AREA X (LON) AND Y (LAT) BOUNDARIES
   BFT1=list(x=c(-80,-88,-95,-100,-100,-85,-80), y=c(20,20,16.5,20,35,35,25))
@@ -351,6 +352,7 @@ g <- SOO1 %>%
 ggsave("figures/data/SOO1_exN10.png", g, height = 7, width = 6)
 
 
+
 # Set 2 provided by Igaratza Fraile, AZTI
 SOO2 <- rbind(
   readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) |>
@@ -397,6 +399,37 @@ g <- SOO2 %>%
   theme(legend.position = "bottom",
         axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("figures/data/SOO2_exN10.png", g, height = 7, width = 6)
+
+# SOO sample size
+g <- SOO1 %>%
+  mutate(Area = factor(Region, area_names$Name)) %>%
+  ggplot(aes(Year, N, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
+  scale_fill_manual(values = c("black", "white")) +
+  coord_cartesian(ylim = c(0, 2000), xlim = c(1970, 2026), expand = FALSE) +
+  expand_limits(y = 0) +
+  labs(x = "Year", y = "Sample Size", title = "Stock of origin") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/data/SOO_N.png", g, height = 5, width = 6)
+
+g <- SOO1 %>%
+  mutate(Area = factor(Region, area_names$Name)) %>%
+  filter(fAGE == "'9+") %>%
+  ggplot(aes(Year, N, fill = Source, group = Source, shape = N > 10)) +
+  geom_line(aes(linetype = Source), linewidth = 0.1) +
+  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 0.75, shape = 21) +
+  facet_grid(vars(Area), vars(Quarter)) +
+  scale_fill_manual(values = c("black", "white")) +
+  coord_cartesian(ylim = c(0, 2000), xlim = c(1970, 2026), expand = FALSE) +
+  labs(x = "Year", y = "Sample Size", title = "Stock of origin") +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("figures/data/SOO_N_season.png", g, height = 5, width = 6)
 
 # Etag
 ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%
