@@ -2,11 +2,18 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_06.30.2026.csv")[1:4, ]
+#Design <- readr::read_csv("tables/Design_06.30.2026.csv")[1:4, ]
+#Design <- readr::read_csv("tables/Design_07.03.2026.csv")
+#Design <- readr::read_csv("tables/Design_07.03.2026a.csv")
+Design <- readr::read_csv("tables/Design_07.03.2026b.csv")
 
+readr::write_csv(Design, "tables/Design_07.04.2026_annual.csv")
 fits <- lapply(1:nrow(Design), function(i) {
   readRDS(file.path("model_output", paste0("fit_", Design$output_name[i], ".rds")))
 })
+
+dir_save <- "figures/fit/compare_07.03b"
+table_suffix <- "07.03b"
 
 # Convergence
 lapply(fits, function(i) i@SD$pdHess)
@@ -15,8 +22,8 @@ lapply(fits, function(i) i@SD$pdHess)
 like <- lapply(fits, multiSA:::get_likelihood_components) %>%
   bind_rows() %>%
   as.matrix() %>%
-  `rownames<-`(Design$model_name)
-write.csv(as.data.frame(like), "tables/like.csv")
+  `rownames<-`(Design$model_name); like
+write.csv(as.data.frame(like), paste0("tables/like_", table_suffix, ".csv"))
 
 like %>%
   apply(2, function(x) x - max(x)) %>%
@@ -33,7 +40,7 @@ R0_df <- sapply(fits, function(i) i@report[[var_name]]) %>%
   as.data.frame() %>%
   round() %>%
   mutate(ratio = round(EBFT/WBFT, 2))
-write.csv(R0_df, file = "tables/compare_R0.csv")
+write.csv(R0_df, file = paste0("tables/compare_R0_", table_suffix, ".csv"))
 
 # Compare SSB in spawning season ----
 SSB <- lapply(1:nrow(Design), function(i) {
@@ -44,7 +51,8 @@ SSB <- lapply(1:nrow(Design), function(i) {
   mutate(model = factor(model, Design$model_name))
 
 prior <- data.frame(
-  model = Design$model_name[c(2, 4)],
+  model = Design$model_name,
+  #model = Design$model_name[c(2, 4)],
   stock = "WBFT",
   year = 2018,
   S = 22000,
@@ -62,7 +70,7 @@ g <- SSB %>%
   labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
   scale_fill_manual(values = multiSA:::make_color(4, "region")) +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SSB.png", g, height = 5, width = 7)
+ggsave(file.path(dir_save, "compare_SSB.png"), g, height = 5, width = 7)
 
 # Spawning biomass - separate axes by stock
 g <- SSB %>%
@@ -73,7 +81,7 @@ g <- SSB %>%
   labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
   scale_fill_manual(values = multiSA:::make_color(4, "region")) +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SSB2.png", g, height = 5, width = 7)
+ggsave(file.path(dir_save, "compare_SSB2.png"), g, height = 5, width = 7)
 
 # Recruitment ----
 rec <- lapply(1:nrow(Design), function(i) {
@@ -88,7 +96,7 @@ g <- rec %>%
   facet_grid(vars(stock), vars(model), scales = "free_y") +
   geom_line() +
   labs(x = "Year", y = "Recruitment")
-ggsave("figures/fit/compare_rec.png", g, height = 4, width = 6)
+ggsave(file.path(dir_save, "compare_rec.png"), g, height = 4, width = 6)
 
 recdev <- lapply(1:nrow(Design), function(i) {
   lapply(1:2, function(s) {
@@ -108,7 +116,7 @@ g <- recdev %>%
   geom_hline(yintercept = 0, linetype = 2) +
   facet_grid(vars(stock), vars(model), scales = "free_y") +
   labs(x = "Year", y = "Recruitment deviation")
-ggsave("figures/fit/compare_recdev.png", g, height = 4, width = 6)
+ggsave(file.path(dir_save, "compare_recdev.png"), g, height = 4, width = 6)
 
 # Selectivity ----
 dat <- get_MSAdata(fits[[1]])
@@ -126,10 +134,10 @@ g <- sel %>%
   geom_line() +
   labs(x = "Length", y = "Selectivity", colour = NULL) +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_sel.png", g, height = 8, width = 6)
+ggsave(file.path(dir_save, "compare_sel.png"), g, height = 8, width = 6)
 
 seli <- lapply(1:nrow(Design), function(i) {
-  lapply(1:23, function(ii) {
+  lapply(1:24, function(ii) {
     plot_seli(fits[[i]], i = ii, figure = FALSE)
   }) %>%
     bind_rows() %>%
@@ -146,7 +154,7 @@ g <- seli %>%
   geom_line() +
   labs(x = "Length", y = "Selectivity", colour = NULL) +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_sel_cpue.png", g, height = 8, width = 6)
+ggsave(file.path(dir_save, "compare_sel_cpue.png"), g, height = 8, width = 6)
 
 g <- seli %>%
   filter(is.na(length)) %>%
@@ -155,7 +163,7 @@ g <- seli %>%
   geom_line() +
   labs(x = "Age", y = "Selectivity") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_sel_index.png", g, height = 5, width = 6)
+ggsave(file.path(dir_save, "compare_sel_index.png"), g, height = 5, width = 6)
 
 # SRR ----
 SRR <- lapply(1:nrow(Design), function(i) {
@@ -209,7 +217,7 @@ g <- ggplot(SRR_hist, aes(S, R)) +
   scale_fill_viridis_c() +
   theme(legend.position = "bottom") +
   labs(x = "Spawning biomass", y = "Recruitment", fill = "Year")
-ggsave("figures/fit/compare_SRR.png", g, height = 4, width = 6)
+ggsave(file.path(dir_save, "compare_SRR.png"), g, height = 4, width = 6)
 
 # Aggregate fit to all indices
 index_all <- lapply(1:length(fits), function(i) {
@@ -240,7 +248,7 @@ g <- index_all %>%
   labs(x = "Year", y = "CPUE", colour = "Model") +
   theme(legend.position = "bottom") +
   guides(colour = guide_legend(ncol = 2))
-ggsave("figures/fit/compare_CPUE_fit.png", g, width = 6, height = 8)
+ggsave(file.path(dir_save, "compare_CPUE_fit.png"), g, width = 6, height = 8)
 
 
 # Fishery-independent indices ----
@@ -255,7 +263,7 @@ g <- index_all %>%
   labs(x = "Year", y = "Index", colour = "Model") +
   theme(legend.position = "bottom") +
   guides(colour = guide_legend(ncol = 2))
-ggsave("figures/fit/compare_index_fit.png", g, width = 6, height = 6)
+ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 6)
 
 # SOO ----
 aa <- c("0-4", "5-8", "9+")
@@ -311,7 +319,7 @@ g <- soo1_pred %>%
        linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 1)") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SOO1_fit.png", g, height = 5, width = 8)
+ggsave(file.path(dir_save, "compare_SOO1_fit.png"), g, height = 5, width = 8)
 
 # By age class
 g <- soo1_pred %>%
@@ -331,7 +339,7 @@ g <- soo1_pred %>%
        linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 1, Age 9+)") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SOO1_fit_a3.png", g, height = 5, width = 8)
+ggsave(file.path(dir_save, "compare_SOO1_fit_a3.png"), g, height = 5, width = 8)
 
 
 
@@ -365,7 +373,7 @@ g <- soo2_pred %>%
        linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 2)") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SOO2_fit.png", g, height = 5, width = 8)
+ggsave(file.path(dir_save, "compare_SOO2_fit.png"), g, height = 5, width = 8)
 
 # By age class
 g <- soo2_pred %>%
@@ -385,7 +393,7 @@ g <- soo2_pred %>%
        linetype = "Data", fill = "Data",
        title = "Stock of origin (Set 2, Age 9+)") +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_SOO2_fit_a3.png", g, height = 5, width = 8)
+ggsave(file.path(dir_save, "compare_SOO2_fit_a3.png"), g, height = 5, width = 8)
 
 
 
@@ -457,21 +465,21 @@ plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
 
 
 
-g <- filter(tags, stock == "EBFT", aa == 1, model %in% Design$model_name[1:4]) %>%
+g <- filter(tags, stock == "EBFT", aa == 1, model %in% Design$model_name[3:5]) %>%
   plot_tags(title = paste("EBFT, Age", aa[1]))
-ggsave("figures/fit/compare_tag_EBFT_a1.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_tag_EBFT_a1.png"), g, height = 6, width = 6)
 
-g <- filter(tags, stock == "EBFT", aa == 2, model %in% Design$model_name[1:4]) %>%
+g <- filter(tags, stock == "EBFT", aa == 2, model %in% Design$model_name[3:5]) %>%
   plot_tags(title = paste("EBFT, Age", aa[2]))
-ggsave("figures/fit/compare_tag_EBFT_a2.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_tag_EBFT_a2.png"), g, height = 6, width = 6)
 
-g <- filter(tags, stock == "EBFT", aa == 3, model %in% Design$model_name[1:4]) %>%
+g <- filter(tags, stock == "EBFT", aa == 3, model %in% Design$model_name[3:5]) %>%
   plot_tags(title = paste("EBFT, Age", aa[3]))
-ggsave("figures/fit/compare_tag_EBFT_a3.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_tag_EBFT_a3.png"), g, height = 6, width = 6)
 
-g <- filter(tags, stock == "WBFT", model %in% Design$model_name[1:4]) %>%
+g <- filter(tags, stock == "WBFT", model %in% Design$model_name[3:5]) %>%
   plot_tags(title = "WBFT")
-ggsave("figures/fit/compare_tag_WBFT.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_tag_WBFT.png"), g, height = 6, width = 6)
 
 # CAL ----
 dat <- get_MSAdata(fits[[1]])
@@ -522,7 +530,7 @@ g <- CAL_agg %>%
   facet_wrap(vars(fleet), ncol = 3, scales = "free_y") +
   labs(x = "Length Bin", y = "Proportion", colour = NULL) +
   theme(legend.position = "bottom")
-ggsave("figures/fit/compare_CAL_agg_fit.png", g, height = 8, width = 6)
+ggsave(file.path(dir_save, "compare_CAL_agg_fit.png"), g, height = 8, width = 6)
 
 # Mean length ----
 panel_factor <- outer(dat@Dlabel@fleet, dat@Dlabel@region, function(i, j) paste(i, j, sep = ": ")) %>%
@@ -562,7 +570,7 @@ for (i in 1:4) {
     labs(x = "Year", y = "Mean length",
          title = Design$model_name[i],
          fill = NULL, colour = NULL)
-  ggsave(paste0("figures/fit/mlen_model", i, ".png"), g, height = 8, width = 6)
+  ggsave(file.path(dir_save, paste0("mlen_model", i, ".png")), g, height = 8, width = 6)
 }
 
 # Plot movement ----
@@ -605,13 +613,13 @@ g <- mov %>%
   filter(stock == "EBFT", Origin != "GOM", Destination != "GOM") %>%
   plot_mov_gg() +
   labs(title = "EBFT")
-ggsave("figures/fit/compare_mov_EBFT.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_mov_EBFT.png"), g, height = 6, width = 6)
 
 g <- mov %>%
   filter(stock == "WBFT", Origin != "MED", Destination != "MED") %>%
   plot_mov_gg() +
   labs(title = "WBFT")
-ggsave("figures/fit/compare_mov_WBFT.png", g, height = 6, width = 6)
+ggsave(file.path(dir_save, "compare_mov_WBFT.png"), g, height = 6, width = 6)
 
 
 # Catch residual
@@ -653,7 +661,7 @@ g <- S_S0 %>%
   coord_cartesian(ylim = c(0, 1.5)) +
   expand_limits(y = 0) +
   labs(y = expression(S/S[0]))
-ggsave("figures/fit/compare_depletion.png", g, height = 3.5, width = 5)
+ggsave(file.path(dir_save, "compare_depletion.png"), g, height = 3.5, width = 5)
 
 # SSB by season ----
 SB_season <- lapply(1:nrow(Design), function (i) {
@@ -694,7 +702,7 @@ for (i in 1:nrow(Design)) {
     labs(x = "Year", y = "Mature biomass", fill = "Stock", title = Design$model_name[i]) +
     scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
     theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
-  ggsave(paste0("figures/fit/SSB_area_season_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(file.path(dir_save, paste0("SSB_area_season_model", i, ".png")), g, height = 5, width = 6)
 }
 
 # Total biomass by season ----
@@ -720,7 +728,7 @@ if (FALSE) {
       labs(x = "Year", y = "Total biomass", fill = "Stock", title = Design$model_name[i]) +
       scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
       theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
-    ggsave(paste0("figures/fit/B_area_season_model", i, ".png"), g, height = 5, width = 6)
+    ggsave(file.path(dir_save, paste0("B_area_season_model", i, ".png")), g, height = 5, width = 6)
   }
 }
 
@@ -772,7 +780,7 @@ for (i in 1:nrow(Design)) {
     coord_cartesian(ylim = c(0, 1)) +
     labs(x = "Year", y = "Seasonal Catch/Biomass", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
-  ggsave(paste0("figures/fit/spatial_exploitation_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(file.path(dir_save, paste0("spatial_exploitation_model", i, ".png")), g, height = 5, width = 6)
 }
 
 # Calculate seasonal, spatial F ----
@@ -802,7 +810,7 @@ for (i in 1:nrow(Design)) {
     #coord_cartesian(ylim = c(0, 1)) +
     labs(x = "Year", y = "Seasonal Apical F", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
-  ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(file.path(dir_save, paste0("spatial_F_model", i, ".png")), g, height = 5, width = 6)
 }
 
 
@@ -833,7 +841,7 @@ for (i in 1:nrow(Design)) {
     scale_fill_viridis_c(option = "C") +
     labs(x = "Year", y = "Age", fill = "Fishing mortality", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
-  ggsave(paste0("figures/fit/spatial_F_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(file.path(dir_save, paste0("spatial_F_model", i, ".png")), g, height = 5, width = 6)
 }
 
 # Catch at age - aggregate across both stocks ----
@@ -863,6 +871,6 @@ for (i in 1:nrow(Design)) {
     scale_fill_viridis_c(option = "C") +
     labs(x = "Year", y = "Age", fill = "Catch at age", title = Design$model_name[i]) +
     theme(legend.position = "bottom")
-  ggsave(paste0("figures/fit/spatial_CAA_model", i, ".png"), g, height = 5, width = 6)
+  ggsave(file.path(dir_save, paste0("spatial_CAA_model", i, ".png")), g, height = 5, width = 6)
 }
 
