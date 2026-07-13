@@ -280,6 +280,22 @@ g <- cpue %>%
   theme(legend.position = "bottom")
 ggsave("figures/data/CPUE.png", g, height = 9, width = 8)
 
+g <- cpue %>%
+  filter(grepl("CAN|POR|US_RR_177|JPN_LL_NEAtl|JPN_LL_West", Name)) %>%
+  mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
+  mutate(Year = Year + 0.25 * (Season - 1)) %>%
+  #left_join(cpue_names, by = "Name") %>%
+  #mutate(Name2 = factor(Name2, cpue_names$Name2)) %>%
+  ggplot(aes(Year, Index, colour = Area, group = Area)) +
+  geom_line(linewidth = 0.25, linetype = 3, color = "grey40") +
+  geom_linerange(linewidth = 0.25, aes(ymin = exp(log(Index) - 2 * CV), ymax = exp(log(Index) + 2*CV))) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Name), ncol = 3, scales = "free_y") +
+  expand_limits(y = 0) +
+  labs(x = "Year", y = "Fishery CPUE", colour = NULL) +
+  theme(legend.position = "bottom")
+ggsave("figures/data/CPUE_compare_VAST.png", g, height = 7, width = 7)
+
 # Fishery-independent index
 index <- readxl::read_excel(xlsx_file, sheet = "Survey") %>%
   mutate(CV = as.numeric(CV), Index = as.numeric(Index))
@@ -304,6 +320,24 @@ g <- index %>%
   labs(x = "Year", y = "Stock-specific index", colour = NULL, shape = NULL) +
   theme(legend.position = "bottom")
 ggsave("figures/data/FI_Index.png", g, height = 4, width = 6)
+
+g <- index %>%
+  filter(grepl("CAN", Name)) %>%
+  mutate(Area = factor(area_names$Name[Area], area_names$Name)) %>%
+  mutate(Year = Year + 0.25 * (Season - 1),
+         Stock = ifelse(Stock == 1, "EBFT", "WBFT")) %>%
+  mutate(lwr = exp(log(Index) - 2 * CV), upr = exp(log(Index) + 2*CV)) %>%
+  left_join(index_names, by = "Name") %>%
+  ggplot(aes(Year, Index, colour = Area, shape = Stock)) +
+  geom_line(linewidth = 0.1, linetype = 3, color = "grey40") +
+  geom_linerange(aes(ymin = lwr, ymax = upr)) +
+  geom_point(size = 1) +
+  facet_wrap(vars(Name2), scales = "free_y") +
+  expand_limits(y = 0) +
+  scale_shape_manual(values = c(16, 21)) +
+  labs(x = "Year", y = "Stock-specific index", colour = NULL, shape = NULL) +
+  theme(legend.position = "bottom")
+ggsave("figures/data/FI_Index_compare_VAST.png", g, height = 2.5, width = 6)
 
 
 
