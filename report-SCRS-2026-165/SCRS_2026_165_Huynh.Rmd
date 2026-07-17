@@ -104,6 +104,38 @@ An initial spool-up with seasonal movement dynamics of 72 years (twice the maxim
 
 Model equations are available at: https://blue-matter.github.io/multiSA/articles/equations.html
 
+```{r bio-par, results="asis"}
+growth_par <- readr::read_csv(here::here("tables/growth_par.csv"), show_col_types = FALSE) %>%
+  mutate(a = format(signif(a, 3)), b = round(b, 3))
+
+flextable(growth_par) %>%
+  set_caption(
+    "Growth parameters (Richards function) and length-weight relationship (a, b)."
+  )
+```
+
+```{r map, fig.cap="Spatial definitions for the four area model."}
+knitr::include_graphics(here::here("figures/data/areas.png"))
+```
+
+\newpage
+
+```{r length-age, fig.cap="Length at age, identical for both stocks."}
+knitr::include_graphics(here::here("figures/bio/length-age.png"))
+```
+
+```{r len-wt, fig.cap="Weight-at-length and weight at age schedules by stock."}
+knitr::include_graphics(here::here("figures/bio/weight-age.png"))
+```
+
+\newpage
+
+```{r maturity-M, fig.cap="Maturity and natural mortality at age by stock for two scenarios: (A) early maturity with high M, (B) late maturity with low M. In scenario A, maturity schedules are identical between stocks."}
+knitr::include_graphics(here::here("figures/bio/maturity-M.png"))
+```
+
+\newpage
+
 ## Data
 
 Fishery data, i.e., catch and length composition, were aggregated by season and area, according to the fleet definitions in **Table \@ref(tab:fleet-table)**, by the ICCAT Secretariat (**Figure \@ref(fig:catch-season)**, annual catch is shown in **Figure \@ref(fig:catch-annual)**).
@@ -124,127 +156,7 @@ Additionally, there were two sets of predictions of stock of origin using either
 Separate models were fitted for SOO set 1 and set 2.
 Within model, separate likelihoods were used between the genetics and otolith time series.
 
-## Estimated parameters and priors
-
-The unfished recruitment parameter $\log(R_{0,s})$ for the stock-recruit relationship is estimated for both stocks where $s$ indexes stock.
-
-For WBFT, the proportion of total recruitment that settles in the GOM is estimated in logit space $p_{GOM} = 1/[1 + \exp(-x)]$, where $x$ is the estimated parameter and $p_{WATL} = 1 - p_{GOM}$. A relatively uninformative prior $x \sim N(0, \sigma = 1.5)$ is used; when transformed to normal space, the prior is relatively uniform between 0-1 but has low prior density at the bounds.
-
-Annual realized recruitment is estimated (for all model years for EBFT and for 1960--2025 for WBFT) as lognormal deviations from the stock-recruit relationship with mean 0, $\sigma_R = 0.5$ for both stocks, with full bias correction.
-
-Selectivity $v$ for fleet $f$ estimated as a double Gaussian function in units of length $\ell$:
-
-$$
-v_{\ell,f} = 
-\begin{cases}
-\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{asc}_f}\right]^2\right) &, \ell \le \mu_1\\
-\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{dsc}_f}\right]^2\right) &, \ell \gt \mu_1\\
-\end{cases}
-$$
-
-where $\mu_f$ is the length at full selectivity, $\sigma^\textrm{asc}_f$ controls the width of the ascending limb, and $\sigma^\textrm{dsc}_f$ controls the width of the descending limb.
-Lognormal priors for $\sigma^\textrm{asc}_f$ and $\sigma^\textrm{dsc}_f$ were used where the prior lognormal mean is half of the length between modal length and the length of first capture in the aggregate length composition (**Table \@ref(tab:sel-prior)**). The lognormal prior standard deviation is 0.5.
-
-Movement from area $r$ to $r'$ for stock $s$ in season $m$ utilizes a gravity model in logit space ($\eta$):
-
-$$
-\eta_{m,r,r',s} = 
-\begin{cases}
-g_{m,r',s} + v_{m,s} &, r = r'\\
-g_{m,r',s} &, \textrm{otherwise}
-\end{cases}
-$$
-
-where $g$ is a gravity term that describes the propensity to move towards $r'$ and $v$ is a viscosity term that describes the propensity to stay in the current area. The movement matrix $M$ is converted to normal space with the softmax transformation:
-
-$$
-M_{m,r,r',s} = \frac{\exp(\eta_{m,r,r',s})}{\sum_{r'}\exp(\eta_{m,r,r',s})}
-$$
-
-To inform movement, additional priors for seasonal spatial distribution were used. These distributions describe the equilibrium proportion that each stock resides in its natal area (**Table \@ref(tab:seasonal-prior)**).
-The equilibrium proportion by season and area is obtained by projecting the movement matrix 200 times. 
-
-## Likelihoods
-
-The log-likelihood were lognormal for the indices of abundance, multinomial for the length composition (maximum sample size of 50), logitnormal for the stock of origin, and multinomial for the tag transitions (no upper limit).
-
-Initial attempts of model fitting with the standard errors from the stock of origin (SOO) failed as the `nlminb()` optimizer on the RTMB model stopped after one iteration. 
-Gradients were large (on the order of $10^5$) and the objective function was dominated by the stock of origin data. 
-Therefore, the SOO likelihood was downweighted with $\lambda = 0.1$ for Set 1 and $\lambda = 0.01$ for Set 2 to allow for tractable estimation.
-
-Additionally, there were penalty terms to the objective function when seasonal fishing mortality (F) exceeded 3: $\textrm{pen}_{y,m,f,r} = 0.01 (F_{y,m,f,r} - 3)^2$.
-
-## Model scenarios
-
-Four model scenarios were evaluated here:
-
-1. Reference Model 1 with SOO set 1 [@hanke2026]
-2. Model 1 with WBFT SSB prior
-1. Reference Model 2 with SOO set 2 [@fraile2026]
-2. Model 2 with WBFT SSB prior
-
-The WBFT SSB prior mean for 2018 is 22,000 t in 2018 [@iccat2025]. Although the CV of the estimate from the CKMR study is 0.18, the lognormal standard deviation used in models 2 and 4 is 0.05. 
-A more precise prior was used to evaluate potential data conflicts in models where the WBFT stock size is small.
-
-All models used the early maturity, high M scenario. 
-
-# Results
-
-## Numerical stability
-
-**Table \@ref(tab:nll)** shows the components to the objective function, including the negative log-likelihoods for each data type, negative log-priors, and penalty terms. Importantly, the maximum gradient of objective function remained high, indicating that the model did not converge to a global minimum.
-
-Repeating the fitting by jittering the parameter start values did not find a minimum, i.e., with a gradient < 1. Nonetheless, the optimization algorithm made sufficient progress to report preliminary results. 
-
-## Estimates of stock size
-
-**Figure \@ref(fig:SSB)** shows the spawning biomass (in the spawning season) among the four models. Estimates of depletion are provided in **Figure \@ref(fig:dep)**.
-
-Models fitted with SOO set 1 tended to have a relatively large WBFT stock compared to the Eastern stock. With SOO set 2, the Eastern stock is much larger.
-Comparisons can be made by the ratio of the unfished recruitment parameter (**Table \@ref(tab:R0)**).
-
-The SSB prior was needed to meaningfully reduce the size of WBFT with SOO Set 1.
-However, this adds more Western fish into the EATL region (compare columns 1 & 2 of **Figure \@ref(fig:SSB)**). 
-SOO Set 1 suggests a significant proportion of WBFT fish in the EATL (typically about 25% of fish in the EATL is Western origin; **Figure \@ref(fig:soo1-fit)**). 
-On the other hand, SOO Set 1 has fewer Western origin fish in the EATL (more frequently between 0-15 percent; **Figure \@ref(fig:soo2-fit)**). To fit the SOO set 1 and the SSB prior, the model sacrifices the fit to the tag transitions for the Western stock to move fish to the EATL at the end of season 2 (green lines in **Figure \@ref(fig:Wtag-fit)**).
-
-With SOO Set 2, the impact of SSB prior on general size of the Western stock was more marginal as the stock was already estimated to be smaller.
-However, the SSB prior appears to stabilize the stock trend over time. 
-Without the prior, the Western biomass increases very rapidly in recent years (**Figure \@ref(fig:dep)**).
-This increase is explained by the increase in Western fish in the WATL, but is exaggerated in SOO Set 2 for age 9+ (**Figure \@ref(fig:soo2-fit)**).
-
-Comparison of CPUE and indices of abundance show good agreement for many series (**Figures \@ref(fig:CPUE-fit)**, **\@ref(fig:index-fit)**). Notably poorer fits and disagreement in predicted trends among models occur in several series, for (G) JPN_LL_NEAtl2 CPUE (in EATL) and (2) FR_AER_SUV2 index (for EBFT in the MED). For the JPN_LL_NEAtl2 CPUE, the predicted CPUE trend substantially varies among models (increasing then decreasing with SOO Set 2 but increasing or flat with SOO Set 1). Similar disagreements occur with the FR_AER_SUV2 index, along with the MED_LAR_SUV to a lesser extent. These patterns indicate disagreement about biomass trend in the East Atlantic and the Eastern stock, respectively. The predicted increase in the indices of abundance are more muted than in the data, i.e., for MED_LAR_SUV, GBYP_AER_SUV, and GOM_LAR_SUV.
-
-## Likelihood profile
-
-One of the important questions in the multi-stock model is the estimability of the ostensibly smaller Western stock. A likelihood profile of the WBFT R0 parameter provides insight to the value of the estimate from different data types, priors, and their interactions with each other. Potential data conflicts can be identified, for example, if the likelihood minimum for one data infers a large stock and another data type infers a small stock.
-
-Profiling was done for two models differing in the SOO data set. The SSB prior was included as well for completeness. 
-In both models, all priors consistently infer a small Western stock. 
-With SOO set 1, the profile is flat for the indices, SOO, and tags for much of the range of R0, although the length composition appears to estimate a larger stock (**Figure \@ref(fig:profile-soo1)**). Overall, the objective function appears well-behaved and smooth. 
-With SOO set 2, the objective function is less well-defined and is not continuously smooth (**Figure \@ref(fig:profile-soo2)**).
-The profiles for the indices and SOO appear inverted for the range of R0, while the length composition and tag profiles are better behaved (indicating a larger stock in the former, flat profile for the latter).
-
-# Acknowledgements
-
-I would like to thank Ai Kimoto for processing the data at the ICCAT Secretariat, Alex Hanke and Igaratza Fraile for the stock mixing time series, as well as John Walter, Matt Lauretta, Tom Carruthers, and others from the bluefin working group for their comments on the initial modeling preceding this paper.
-
-This work was carried out under the provision of the ICCAT Atlantic-Wide Research Programme for Bluefin Tuna (GBYP). The contents of this document do not necessarily reflect the point of view of ICCAT, which has no responsibility over them, and in no ways anticipate the Commission’s future policy in this area.
-This work was conducted with the funding support of the ICCAT GBYP budget and was partially funded by the European Union through the EU Grant Agreement No. 101320145.
-
 \newpage
-
-# Tables
-
-```{r bio-par, results="asis"}
-growth_par <- readr::read_csv(here::here("tables/growth_par.csv"), show_col_types = FALSE) %>%
-  mutate(a = format(signif(a, 3)), b = round(b, 3))
-
-flextable(growth_par) %>%
-  set_caption(
-    "Growth parameters (Richards function) and length-weight relationship (a, b)."
-  )
-```
 
 ```{r fleet-table, results="asis"}
 ### Fleet names
@@ -267,7 +179,6 @@ flextable(
   width(j = 2:4, width = 1) %>%
   set_caption("Fleet structure in the model with selectivity function and range of years with catch.")
 ```
-
 
 \newpage
 
@@ -355,86 +266,6 @@ select(index_summary, Name, Stock, Type, Year, Season, Area) %>%
 
 \newpage
 
-```{r sel-prior, results="asis"}
-sel <- readr::read_csv(here::here("tables/selprior.csv"), show_col_types = FALSE)
-flextable(sel) %>%
-  colformat_double(j = 2:5, na_str = "-", digits = 1) %>%
-  set_caption("Prior mean for the ascending and descending selectivity limb (identical values used for both) and the parameter estimates in the Model 1. Fleet 14 has flat-topped selectivity while all other fleets have dome selectivity.") %>%
-  width(j = c(1, 3:4), width = 1.25)
-```
-
-\newpage
-
-```{r seasonal-prior, results="asis"}
-dist_prior <- readxl::read_excel(xlsx_file, sheet = "Seasonal_Prior") %>%
-  mutate(Stock = ifelse(Ino == 1, "WBFT", "EBFT"),
-         Area = ifelse(Area == 1, "GOM", "MED")) %>%
-  select(Stock, Area, Season, Index, CV) %>%
-  arrange(Stock) %>%
-  rename(Mean = Index)
-
-flextable(dist_prior) %>%
-  set_caption("Seasonal distribution lognormal prior. Means indicate the proportion of the stock that resides in its natal area in equilibrium (by projecting the movement matrix 200 times).")
-```
-
-\newpage
-
-
-```{r R0, results="asis"}
-R0 <- readr::read_csv(here::here("tables/compare_R0.csv"), show_col_types = FALSE)
-
-flextable(R0) %>%
-  set_caption("Estimates of unfished recruitment (R0) for the two stocks in four models and the ratio of values between the two stocks.")
-```
-
-```{r nll, results="asis"}
-names_df <- data.frame(
-  variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi", "loglike_SC_ymafr",
-               "loglike_tag_mov_ymars", "logprior", "logprior_par",
-               "logprior_rdev_ys", "penalty", "objective", "maxgrad"),
-  Component = c("All likelihoods", "Like: Length composition", "Like: Indices", "Like: SOO",
-                "Like: Tags", "All priors", "Pr: sel + SSB + spatial prior",
-                "Pr: Rec devs", "Penalty", "Objective", "Max. Gradient")
-)
-like <- readr::read_csv(here::here("tables/like.csv"), show_col_types = FALSE) %>%
-  reshape2::melt(id.vars = "Model") %>%
-  left_join(names_df, by = "variable") %>%
-  filter(!is.na(Component)) %>%
-  mutate(Component = factor(Component, names_df$Component)) %>%
-  reshape2::dcast(list("Component", "Model"), value.var = "value")
-
-flextable(like) %>%
-  width(j = 1, width = 2) %>%
-  colformat_double(j = 2:5, digits = 0) %>%
-  set_caption("Negative log likelihood and negative log prior, and penalty components to the objective function for each model (column), along with maximum gradients.")
-```
-
-\newpage
-
-# Figures
-
-## Model structure and biology
-
-```{r map, fig.cap="Spatial definitions for the four area model."}
-knitr::include_graphics(here::here("figures/data/areas.png"))
-```
-
-```{r length-age, fig.cap="Length at age, identical for both stocks."}
-knitr::include_graphics(here::here("figures/bio/length-age.png"))
-```
-
-```{r len-wt, fig.cap="Weight-at-length and weight at age schedules by stock."}
-knitr::include_graphics(here::here("figures/bio/weight-age.png"))
-```
-
-```{r maturity-M, fig.cap="Maturity and natural mortality at age by stock for two scenarios: (A) early maturity with high M, (B) late maturity with low M. In scenario A, maturity schedules are identical between stocks."}
-knitr::include_graphics(here::here("figures/bio/maturity-M.png"))
-```
-
-\newpage
-
-## Data
-
 ```{r catch-season, fig.cap="Season catch (t) by fleet and region."}
 knitr::include_graphics(here::here("figures/data/Cobs_seasonal.png"))
 ```
@@ -473,7 +304,166 @@ knitr::include_graphics(here::here("figures/data/SOO2.png"))
 
 \newpage
 
-## Model results
+## Estimated parameters and priors
+
+The unfished recruitment parameter $\log(R_{0,s})$ for the stock-recruit relationship is estimated for both stocks where $s$ indexes stock.
+
+For WBFT, the proportion of total recruitment that settles in the GOM is estimated in logit space $p_{GOM} = 1/[1 + \exp(-x)]$, where $x$ is the estimated parameter and $p_{WATL} = 1 - p_{GOM}$. A relatively uninformative prior $x \sim N(0, \sigma = 1.5)$ is used; when transformed to normal space, the prior is relatively uniform between 0-1 but has low prior density at the bounds.
+
+Annual realized recruitment is estimated (for all model years for EBFT and for 1960--2025 for WBFT) as lognormal deviations from the stock-recruit relationship with mean 0, $\sigma_R = 0.5$ for both stocks, with full bias correction.
+
+Selectivity $v$ for fleet $f$ estimated as a double Gaussian function in units of length $\ell$:
+
+$$
+v_{\ell,f} = 
+\begin{cases}
+\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{asc}_f}\right]^2\right) &, \ell \le \mu_1\\
+\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{dsc}_f}\right]^2\right) &, \ell \gt \mu_1\\
+\end{cases}
+$$
+
+where $\mu_f$ is the length at full selectivity, $\sigma^\textrm{asc}_f$ controls the width of the ascending limb, and $\sigma^\textrm{dsc}_f$ controls the width of the descending limb.
+Lognormal priors for $\sigma^\textrm{asc}_f$ and $\sigma^\textrm{dsc}_f$ were used where the prior lognormal mean is half of the length between modal length and the length of first capture in the aggregate length composition (**Table \@ref(tab:sel-prior)**). The lognormal prior standard deviation is 0.5.
+
+Movement from area $r$ to $r'$ for stock $s$ in season $m$ utilizes a gravity model in logit space ($\eta$):
+
+$$
+\eta_{m,r,r',s} = 
+\begin{cases}
+g_{m,r',s} + v_{m,s} &, r = r'\\
+g_{m,r',s} &, \textrm{otherwise}
+\end{cases}
+$$
+
+where $g$ is a gravity term that describes the propensity to move towards $r'$ and $v$ is a viscosity term that describes the propensity to stay in the current area. The movement matrix $M$ is converted to normal space with the softmax transformation:
+
+$$
+M_{m,r,r',s} = \frac{\exp(\eta_{m,r,r',s})}{\sum_{r'}\exp(\eta_{m,r,r',s})}
+$$
+
+To inform movement, additional priors for seasonal spatial distribution were used. These distributions describe the equilibrium proportion that each stock resides in its natal area (**Table \@ref(tab:seasonal-prior)**).
+The equilibrium proportion by season and area is obtained by projecting the movement matrix 200 times. 
+
+\newpage
+
+```{r sel-prior, results="asis"}
+sel <- readr::read_csv(here::here("tables/selprior.csv"), show_col_types = FALSE)
+flextable(sel) %>%
+  colformat_double(j = 2:5, na_str = "-", digits = 1) %>%
+  set_caption("Prior mean for the ascending and descending selectivity limb (identical values used for both) and the parameter estimates in the Model 1. Fleet 14 has flat-topped selectivity while all other fleets have dome selectivity.") %>%
+  width(j = c(1, 3:4), width = 1.25)
+```
+
+\newpage
+
+```{r seasonal-prior, results="asis"}
+dist_prior <- readxl::read_excel(xlsx_file, sheet = "Seasonal_Prior") %>%
+  mutate(Stock = ifelse(Ino == 1, "WBFT", "EBFT"),
+         Area = ifelse(Area == 1, "GOM", "MED")) %>%
+  select(Stock, Area, Season, Index, CV) %>%
+  arrange(Stock) %>%
+  rename(Mean = Index)
+
+flextable(dist_prior) %>%
+  set_caption("Seasonal distribution lognormal prior. Means indicate the proportion of the stock that resides in its natal area in equilibrium (by projecting the movement matrix 200 times).")
+```
+
+\newpage
+
+## Likelihoods
+
+The log-likelihood were lognormal for the indices of abundance, multinomial for the length composition (maximum sample size of 50), logitnormal for the stock of origin, and multinomial for the tag transitions (no upper limit).
+
+Initial attempts of model fitting with the standard errors from the stock of origin (SOO) failed as the `nlminb()` optimizer on the RTMB model stopped after one iteration. 
+Gradients were large (on the order of $10^5$) and the objective function was dominated by the stock of origin data. 
+Therefore, the SOO likelihood was downweighted with $\lambda = 0.1$ for Set 1 and $\lambda = 0.01$ for Set 2 to allow for tractable estimation.
+
+Additionally, there were penalty terms to the objective function when seasonal fishing mortality (F) exceeded 3: $\textrm{pen}_{y,m,f,r} = 0.01 (F_{y,m,f,r} - 3)^2$.
+
+## Model scenarios
+
+Four model scenarios were evaluated here:
+
+1. Reference Model 1 with SOO set 1 [@hanke2026]
+2. Model 1 with WBFT SSB prior
+1. Reference Model 2 with SOO set 2 [@fraile2026]
+2. Model 2 with WBFT SSB prior
+
+The WBFT SSB prior mean for 2018 is 22,000 t in 2018 [@iccat2025]. Although the CV of the estimate from the CKMR study is 0.18, the lognormal standard deviation used in models 2 and 4 is 0.05. 
+A more precise prior was used to evaluate potential data conflicts in models where the WBFT stock size is small.
+
+All models used the early maturity, high M scenario. 
+
+# Results
+
+## Numerical stability
+
+**Table \@ref(tab:nll)** shows the components to the objective function, including the negative log-likelihoods for each data type, negative log-priors, and penalty terms. Importantly, the maximum gradient of objective function remained high, indicating that the model did not converge to a global minimum.
+
+Repeating the fitting by jittering the parameter start values did not find a minimum, i.e., with a gradient < 1. Nonetheless, the optimization algorithm made sufficient progress to report preliminary results. 
+
+## Estimates of stock size
+
+**Figure \@ref(fig:SSB)** shows the spawning biomass (in the spawning season) among the four models. Estimates of depletion are provided in **Figure \@ref(fig:dep)**.
+
+Models fitted with SOO set 1 tended to have a relatively large WBFT stock compared to the Eastern stock. With SOO set 2, the Eastern stock is much larger.
+Comparisons can be made by the ratio of the unfished recruitment parameter (**Table \@ref(tab:R0)**).
+
+The SSB prior was needed to meaningfully reduce the size of WBFT with SOO Set 1.
+However, this adds more Western fish into the EATL region (compare columns 1 & 2 of **Figure \@ref(fig:SSB)**). 
+SOO Set 1 suggests a significant proportion of WBFT fish in the EATL (typically about 25% of fish in the EATL is Western origin; **Figure \@ref(fig:soo1-fit)**). 
+On the other hand, SOO Set 1 has fewer Western origin fish in the EATL (more frequently between 0-15 percent; **Figure \@ref(fig:soo2-fit)**). To fit the SOO set 1 and the SSB prior, the model sacrifices the fit to the tag transitions for the Western stock to move fish to the EATL at the end of season 2 (green lines in **Figure \@ref(fig:Wtag-fit)**).
+The corresponding fits to the EATL tag movements are in **Figures \@ref(fig:Etag-fit1)-\@ref(fig:Etag-fit3)**.
+
+With SOO Set 2, the impact of SSB prior on general size of the Western stock was more marginal as the stock was already estimated to be smaller.
+However, the SSB prior appears to stabilize the stock trend over time. 
+Without the prior, the Western biomass increases very rapidly in recent years (**Figure \@ref(fig:dep)**).
+This increase is explained by the increase in Western fish in the WATL, but is exaggerated in SOO Set 2 for age 9+ (**Figure \@ref(fig:soo2-fit)**).
+
+Comparison of CPUE and indices of abundance show good agreement for many series (**Figures \@ref(fig:CPUE-fit)**, **\@ref(fig:index-fit)**). Notably poorer fits and disagreement in predicted trends among models occur in several series, for (G) JPN_LL_NEAtl2 CPUE (in EATL) and (2) FR_AER_SUV2 index (for EBFT in the MED). For the JPN_LL_NEAtl2 CPUE, the predicted CPUE trend substantially varies among models (increasing then decreasing with SOO Set 2 but increasing or flat with SOO Set 1). Similar disagreements occur with the FR_AER_SUV2 index, along with the MED_LAR_SUV to a lesser extent. These patterns indicate disagreement about biomass trend in the East Atlantic and the Eastern stock, respectively. The predicted increase in the indices of abundance are more muted than in the data, i.e., for MED_LAR_SUV, GBYP_AER_SUV, and GOM_LAR_SUV.
+
+## Likelihood profile
+
+One of the important questions in the multi-stock model is the estimability of the ostensibly smaller Western stock. A likelihood profile of the WBFT R0 parameter provides insight to the value of the estimate from different data types, priors, and their interactions with each other. Potential data conflicts can be identified, for example, if the likelihood minimum for one data infers a large stock and another data type infers a small stock.
+
+Profiling was done for two models differing in the SOO data set. The SSB prior was included as well for completeness. 
+In both models, all priors consistently infer a small Western stock. 
+With SOO set 1, the profile is flat for the indices, SOO, and tags for much of the range of R0, although the length composition appears to estimate a larger stock (**Figure \@ref(fig:profile-soo1)**). Overall, the objective function appears well-behaved and smooth. 
+With SOO set 2, the objective function is less well-defined and is not continuously smooth (**Figure \@ref(fig:profile-soo2)**).
+The profiles for the indices and SOO appear inverted for the range of R0, while the length composition and tag profiles are better behaved (indicating a larger stock in the former, flat profile for the latter).
+
+\newpage
+
+```{r nll, results="asis"}
+names_df <- data.frame(
+  variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi", "loglike_SC_ymafr",
+               "loglike_tag_mov_ymars", "logprior", "logprior_par",
+               "logprior_rdev_ys", "penalty", "objective", "maxgrad"),
+  Component = c("All likelihoods", "Like: Length composition", "Like: Indices", "Like: SOO",
+                "Like: Tags", "All priors", "Pr: sel + SSB + spatial prior",
+                "Pr: Rec devs", "Penalty", "Objective", "Max. Gradient")
+)
+like <- readr::read_csv(here::here("tables/like.csv"), show_col_types = FALSE) %>%
+  reshape2::melt(id.vars = "Model") %>%
+  left_join(names_df, by = "variable") %>%
+  filter(!is.na(Component)) %>%
+  mutate(Component = factor(Component, names_df$Component)) %>%
+  reshape2::dcast(list("Component", "Model"), value.var = "value")
+
+flextable(like) %>%
+  width(j = 1, width = 2) %>%
+  colformat_double(j = 2:5, digits = 0) %>%
+  set_caption("Negative log likelihood and negative log prior, and penalty components to the objective function for each model (column), along with maximum gradients.")
+```
+
+```{r R0, results="asis"}
+R0 <- readr::read_csv(here::here("tables/compare_R0.csv"), show_col_types = FALSE)
+
+flextable(R0) %>%
+  set_caption("Estimates of unfished recruitment (R0) for the two stocks in four models and the ratio of values between the two stocks.")
+```
+
+\newpage
 
 ```{r SSB, fig.cap="Spawning stock biomass in season 2 by stock (rows) and model (columns). Black points indicate the Western SSB prior mean in 2018."}
 knitr::include_graphics(here::here("figures/fit/compare_06.22/compare_SSB.png"))
@@ -522,6 +512,15 @@ knitr::include_graphics(here::here("figures/profile/WR0_SOO1_components.png"))
 ```{r profile-soo2, fig.cap="Profile for Western R0 with SOO set 2. Profile is separated by data component for the likelihoods and priors."}
 knitr::include_graphics(here::here("figures/profile/WR0_SOO2_components.png"))
 ```
+
+# Acknowledgements
+
+I would like to thank Ai Kimoto for processing the data at the ICCAT Secretariat, Alex Hanke and Igaratza Fraile for the stock mixing time series, as well as John Walter, Matt Lauretta, Tom Carruthers, and others from the bluefin working group for their comments on the initial modeling preceding this paper.
+
+Support for the development of multiSA was provided by the NOAA Fisheries Bluefin Tuna Research Program (BTRP Grants NA23NMF4720184 and NA24NMFX472C0008-T1-01) in collaboration with the Ocean Foundation.
+
+This work was carried out under the provision of the ICCAT Atlantic-Wide Research Programme for Bluefin Tuna (GBYP). The contents of this document do not necessarily reflect the point of view of ICCAT, which has no responsibility over them, and in no ways anticipate the Commission’s future policy in this area.
+This work was conducted with the funding support of the ICCAT GBYP budget and was partially funded by the European Union through the EU Grant Agreement No. 101320145.
 
 \newpage
 
