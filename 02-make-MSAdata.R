@@ -466,7 +466,7 @@ Dtag@tagN_ymars <- apply(Dtag@tag_ymarrs, c(1, 2, 3, 4, 6), sum)
 
 
 #### Fishery data - Stock of origin ----
-#### DECISION: Only include SOO data in the WATL and EATL!
+#### DECISION with SOO1 and SOO2: Only include SOO data in the WATL and EATL!
 
 # Prep the data object further:
 # Three age classes 0-4, 5-8, 9+
@@ -593,6 +593,50 @@ Dfishery_SOO2@SCstdev_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "St
 
 
 
+# Set 3 from A. Hanke
+# From genetics only - stratify by fleet and year in the WATL
+Dfishery_SOO3 <- Dfishery
+
+SOO3_fleet <- data.frame(
+  Fleet = c("CAN", "USA_1", "USA_2"),
+  Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
+) %>%
+  left_join(fleet_names, by = "Code")
+
+SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
+  mutate(
+    y = Year - ModelYear[1] + 1,  # year as integers
+    a = 1,                        # Age class 1 (aggregated all ages)
+    r = 2,                        # WATL
+    s = 2,                        # WBFT
+    SE = abs(qlogis(Predicted_Value) * CV)
+  ) %>%
+  left_join(SOO3_fleet, by = "Fleet") %>%
+  select(!Fleet) %>%
+  rename(Fleet = Number) # Fleet
+
+# Assign season of observation to season with largest catch
+SOO3_dom_catch <- left_join(SOO3, as.data.frame(Catch)) %>%
+  select(Year, Code, Catch, Area, Season, Dom_Quarter) %>%
+  mutate(p = Catch/sum(Catch), .by = c(Year, Code, Area, Dom_Quarter)) %>%
+  summarise(Seas = Season[which.max(p)], .by = c(Year, Code, Area, Dom_Quarter))
+
+SOO3_seas <- left_join(SOO3, SOO3_dom_catch) %>%
+  select(y, Seas, a, Fleet, r, s, Predicted_Value, SE) %>%
+  as.matrix()
+
+# One age class, disparate fleets
+Dfishery_SOO3@SC_ymafrs <-
+  Dfishery_SOO3@SCstdev_ymafrs <-
+  array(NA, c(Dmodel@ny, Dmodel@nm, 1, Dfishery@nf, Dmodel@nr, Dmodel@ns))
+
+# WBFT
+Dfishery_SOO3@SC_ymafrs[SOO3_seas[, c("y", "Seas", "a", "Fleet", "r", "s")]] <- SOO3_seas[, "Predicted_Value"]
+Dfishery_SOO3@SCstdev_ymafrs[SOO3_seas[, c("y", "Seas", "a", "Fleet", "r", "s")]] <- round(SOO3_seas[, "SE"], 3)
+
+# EBFT
+Dfishery_SOO3@SC_ymafrs[, , , , , 1] <- 1 - Dfishery_SOO3@SC_ymafrs[, , , , , 2]
+Dfishery_SOO3@SCstdev_ymafrs[, , , , , 1] <- Dfishery_SOO3@SCstdev_ymafrs[, , , , , 2]
 
 
 
@@ -630,6 +674,7 @@ saveRDS(Dstock_A, file.path(dir_save, "Dstock_A.rds"))
 saveRDS(Dstock_B, file.path(dir_save, "Dstock_B.rds"))
 saveRDS(Dfishery, file.path(dir_save, "Dfishery_SOO1.rds"))
 saveRDS(Dfishery_SOO2, file.path(dir_save, "Dfishery_SOO2.rds"))
+saveRDS(Dfishery_SOO3, file.path(dir_save, "Dfishery_SOO3.rds"))
 saveRDS(Dsurvey, file.path(dir_save, "Dsurvey.rds"))
 saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
 saveRDS(Dlabel, file.path(dir_save, "Dlabel.rds"))

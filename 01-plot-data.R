@@ -110,12 +110,12 @@ if (FALSE) {
 
 
 
-### Area names
+## Area names ----
 area_names <- readxl::read_excel(xlsx_file, sheet = "Areas") %>%
   select(Area, Name) %>%
   filter(1:nrow(.) %in% seq(1, nrow(.), 2))
 
-### Fleet names
+## Fleet names ----
 fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
   mutate(FleetName = paste0(Number, " - ", Code))
 
@@ -134,7 +134,7 @@ fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
 
 
 
-### Catch
+## Catch ----
 Catch <- readxl::read_excel(xlsx_file, sheet = "Catch") %>%
   mutate(Area = factor(area_names$Name[Area], area_names$Name),
          Fleet = factor(fleet_names$FleetName[Fleet], fleet_names$FleetName))
@@ -210,7 +210,7 @@ CAL <- readxl::read_excel(xlsx_file, sheet = "Length_Comp") %>%
          Fleet = factor(fleet_names$FleetName[Fleet], fleet_names$FleetName)) %>%
   mutate(p = N/sum(N), .by = c(Year, Season, Area, Fleet))
 
-# Mean length
+## Mean length ----
 g <- CAL %>%
   summarise(mlen = weighted.mean(Bin, N), .by = c(Year, Season, Fleet, Area)) %>%
   mutate(Year = Year + 0.25 * (Season - 1)) %>%
@@ -257,7 +257,7 @@ ggsave("figures/data/CAL_aggregate2.png", g, height = 8, width = 6)
 
 
 
-# Fishery CPUE
+## Fishery CPUE ----
 cpue <- readxl::read_excel(xlsx_file, sheet = "CPUE") %>%
   mutate(CV = as.numeric(CV), Index = as.numeric(Index))
 
@@ -296,7 +296,7 @@ g <- cpue %>%
   theme(legend.position = "bottom")
 ggsave("figures/data/CPUE_compare_VAST.png", g, height = 7, width = 7)
 
-# Fishery-independent index
+## Fishery-independent index ----
 index <- readxl::read_excel(xlsx_file, sheet = "Survey") %>%
   mutate(CV = as.numeric(CV), Index = as.numeric(Index))
 
@@ -344,7 +344,7 @@ ggsave("figures/data/FI_Index_compare_VAST.png", g, height = 2.5, width = 6)
 
 
 
-# Stock of origin
+## Stock of origin ----
 # Set 1 provided by Alex Hanke, DFO
 SOO1 <- rbind(
   read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Otolith"),
@@ -465,7 +465,42 @@ g <- SOO1 %>%
         axis.text.x = element_text(angle = 45, hjust = 1))
 ggsave("figures/data/SOO_N_season.png", g, height = 5, width = 6)
 
-# Etag
+
+
+
+
+
+# Set 3
+SOO3_fleet <- data.frame(
+  Fleet = c("CAN", "USA_1", "USA_2"),
+  Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
+) %>%
+  left_join(fleet_names, by = "Code")
+
+SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
+  left_join(SOO3_fleet, by = "Fleet")
+
+g <- ggplot(SOO3, aes(Year, Predicted_Value, colour = Fleet)) +
+  geom_point() +
+  geom_line(linewidth = 0.1) +
+  geom_linerange(aes(ymin = Lower_95, ymax = Upper_95)) +
+  labs(y = "Proportion WBFT") +
+  coord_cartesian(ylim = c(0, 1))
+ggsave("figures/data/SOO3.png", g, height = 4, width = 6)
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Etag ----
 ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%
   mutate(Name = ifelse(Class == 1, "0-4", ifelse(Class == 2, "5-8", "9+"))) %>%
   summarise(n = n(), .by = c(Class, Name))
