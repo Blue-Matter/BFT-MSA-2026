@@ -444,6 +444,8 @@ Dsurvey@delta_i <- c(delta_i$delta, 0.25)
 
 
 
+Dtag <- new("Dtag")
+
 if (FALSE) {
 
   #### Tag transitions ----
@@ -459,8 +461,6 @@ if (FALSE) {
            to = match(To, area_names$Name) %>% as.numeric()) %>%
     select(y, s, Quarter, fr, to, N, Nfr, AgeClass, p) %>%
     as.matrix()
-
-  Dtag <- new("Dtag")
 
   Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 3, Dmodel@nr, Dmodel@nr, Dmodel@ns))
   Dtag@tag_ymarrs[etag_matrix[, c("y", "Quarter", "AgeClass", "fr", "to", "s")]] <- etag_matrix[, "N"]
@@ -644,7 +644,10 @@ SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predic
     a = 1,                        # Age class 1 (aggregated all ages)
     r = 2,                        # WATL
     s = 2,                        # WBFT
-    SE = abs(qlogis(Predicted_Value) * CV)
+    logit_diff = qlogis(Predicted_Value) - qlogis(Lower_95),
+    logit_diff2 = qlogis(Upper_95) - qlogis(Predicted_Value),
+    diff = pmax(logit_diff, logit_diff2),
+    SE = 0.5 * diff
   ) %>%
   left_join(SOO3_fleet, by = "Fleet") %>%
   select(!Fleet) %>%
@@ -702,5 +705,5 @@ saveRDS(Dfishery, file.path(dir_save, "Dfishery_SOO1.rds"))
 saveRDS(Dfishery_SOO2, file.path(dir_save, "Dfishery_SOO2.rds"))
 saveRDS(Dfishery_SOO3, file.path(dir_save, "Dfishery_SOO3.rds"))
 saveRDS(Dsurvey, file.path(dir_save, "Dsurvey.rds"))
-#saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
+saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
 saveRDS(Dlabel, file.path(dir_save, "Dlabel.rds"))

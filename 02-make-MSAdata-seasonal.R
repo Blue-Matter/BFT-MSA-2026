@@ -615,7 +615,10 @@ SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predic
     a = 1,                        # Age class 1 (aggregated all ages)
     r = 2,                        # WATL
     s = 2,                        # WBFT
-    SE = abs(qlogis(Predicted_Value) * CV)
+    logit_diff = qlogis(Predicted_Value) - qlogis(Lower_95),
+    logit_diff2 = qlogis(Upper_95) - qlogis(Predicted_Value),
+    diff = pmax(logit_diff, logit_diff2),
+    SE = 0.5 * diff
   ) %>%
   left_join(SOO3_fleet, by = "Fleet") %>%
   select(!Fleet) %>%
