@@ -57,9 +57,6 @@ Dmodel <- new(
 # Add priors here as a character string that is evaluated during the model run
 # It really helps to know the internal model code in multiSA:::.MSA()
 
-# Constrain rec devs as devvector (sums to zero)
-prior_recdev <- paste0("dnorm(sum(p$log_rdev_ys[, ", 1:2, "]), 0, 0.01, log = TRUE)")
-
 # Prior for proportion of stock in natal region in each season
 prior_dist <- local({
   d <- readxl::read_excel(xlsx_file, sheet = "Seasonal_Prior")
@@ -81,9 +78,6 @@ prior_dist <- local({
   })
 })
 
-# Recruitment distribution prior for stock 2 in GOM
-prior_recdist <- "dnorm(p$log_recdist_rs[1, 2], 0, 1.5, log = TRUE)"
-
 # Sample recdist prior, i.e. why sd = 1.5 seems appropriate for a mostly uninformative uniform prior away from bounds
 if (FALSE) {
   nsamp <- 1e5
@@ -100,7 +94,7 @@ if (FALSE) {
   dev.off()
 }
 
-Dmodel@prior <- c(prior_recdev, prior_dist, prior_recdist)
+Dmodel@prior <- prior_dist
 
 
 
@@ -285,12 +279,15 @@ stopifnot(length(unique(CAL[, "Len_class"])) == nrow(len_bin))
 Dfishery@CALobs_ymlfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dmodel@nl, Dfishery@nf, Dmodel@nr))
 
 Dfishery@CALobs_ymlfr[CAL[, c("y", "Season", "Len_class", "Fleet", "Area")]] <- CAL[, "N"]
-Dfishery@CALN_ymfr <- apply(Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum)
-Dfishery@CALN_ymfr <- pmin(Dfishery@CALN_ymfr, 50) # set maximum but will redo further when fitting model
+Dfishery@CALN_ymfr <- apply(Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum) %>% log() %>% round(3)
+Dfishery@CALN_ymfr[is.infinite(Dfishery@CALN_ymfr)] <- 0
 
-Dfishery@fcomp_like <- "lognormal"
+Dfishery@fcomp_like <- "multinomial"
 
-Dfishery@sel_f <- ifelse(fleet_names$Selectivity == "Logistic", "logistic_length", "dome_length")
+# Dummy fleet 19 is PSNOR after 2015
+Dfishery@sel_f <- ifelse(fleet_names$Selectivity == "Logistic", "logistic_length", "dome_length") %>% c("dome_length")
+Dfishery@sel_block_yf <- matrix(1:Dfishery@nf, ny, Dfishery@nf, byrow = TRUE)
+Dfishery@sel_block_yf[ModelYear >= 2016, grepl("PSNOR", fleet_names$Code)] <- Dfishery@nf + 1
 
 stopifnot(all(apply(Dfishery@CALobs_ymlfr, 4, sum) > 0)) # Every fleet has length samples?
 
