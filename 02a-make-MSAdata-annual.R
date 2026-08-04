@@ -619,16 +619,23 @@ Dfishery_SOO2@SCstdev_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "St
 
 
 # Set 3 from A. Hanke
-# From genetics only - stratify by fleet and year in the WATL
+# From genetics only - stratify by fleet (3) and year in the WATL
 Dfishery_SOO3 <- Dfishery
 Dfishery_SOO3@SC_aa <- matrix(1, 1, Dmodel@na)
-Dfishery_SOO3@SC_ff <- diag(Dfishery@nf)
 
 SOO3_fleet <- data.frame(
   Fleet = c("CAN", "USA_1", "USA_2"),
   Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
 ) %>%
-  left_join(fleet_names, by = "Code")
+  left_join(fleet_names, by = "Code") %>%
+  mutate(f = 1:n())
+
+Dfishery_SOO3@SC_ff <- local({
+  SOO3_fleet_i <- as.matrix(select(SOO3_fleet, f, Number))
+  x <- matrix(0, 3, Dfishery@nf)
+  x[SOO3_fleet_i[, c("f", "Number")]] <- 1
+  x
+})
 
 SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
   mutate(
@@ -642,17 +649,17 @@ SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predic
   left_join(SOO3_fleet, by = "Fleet") %>%
   select(!Fleet) %>%
   rename(Fleet = Number) # Fleet
-SOO3_seas <- select(SOO3, y, Seas, a, Fleet, r, s, Predicted_Value, SE) %>%
+SOO3_seas <- select(SOO3, y, Seas, a, Fleet, r, s, f, Predicted_Value, SE) %>%
   as.matrix()
 
 # One age class, disparate fleets
 Dfishery_SOO3@SC_ymafrs <-
   Dfishery_SOO3@SCstdev_ymafrs <-
-  array(NA, c(Dmodel@ny, Dmodel@nm, 1, Dfishery@nf, Dmodel@nr, Dmodel@ns))
+  array(NA, c(Dmodel@ny, Dmodel@nm, 1, 3, Dmodel@nr, Dmodel@ns))
 
 # WBFT
-Dfishery_SOO3@SC_ymafrs[SOO3_seas[, c("y", "Seas", "a", "Fleet", "r", "s")]] <- SOO3_seas[, "Predicted_Value"]
-Dfishery_SOO3@SCstdev_ymafrs[SOO3_seas[, c("y", "Seas", "a", "Fleet", "r", "s")]] <- round(SOO3_seas[, "SE"], 3)
+Dfishery_SOO3@SC_ymafrs[SOO3_seas[, c("y", "Seas", "a", "f", "r", "s")]] <- SOO3_seas[, "Predicted_Value"]
+Dfishery_SOO3@SCstdev_ymafrs[SOO3_seas[, c("y", "Seas", "a", "f", "r", "s")]] <- round(SOO3_seas[, "SE"], 3)
 
 # EBFT
 Dfishery_SOO3@SC_ymafrs[, , , , , 1] <- 1 - Dfishery_SOO3@SC_ymafrs[, , , , , 2]
