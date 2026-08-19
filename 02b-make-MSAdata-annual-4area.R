@@ -1,0 +1,577 @@
+
+library(multiSA)
+library(tidyverse)
+
+#### Master file to organize most model settings ----
+xlsx_file <- file.path("data", "1_M3_data", "ICCAT_MSA_Data_2026Apr_v1.xlsx")
+
+#### Area names ----
+area_names <- readxl::read_excel(xlsx_file, sheet = "Areas") %>%
+  select(Area, Name) %>%
+  filter(1:nrow(.) %in% seq(1, nrow(.), 2))
+
+#### Age classes ----
+ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%
+  mutate(Name = ifelse(Class == 1, "0-4", ifelse(Class == 2, "5-8", "9+"))) %>%
+  summarise(n = n(), .by = c(Class, Name))
+
+#### Fleet names ----
+fleet_names <- readxl::read_excel(xlsx_file, sheet = "Fleets") %>%
+  mutate(FleetName = paste0(Number, ": ", Code))
+
+# Set PSNOR to logistic
+fleet_names$Selectivity[grepl('PSNOR', fleet_names$Code)] <- "Logistic"
+
+#### Model Settings (Years, Age, Areas, Stocks, Seasons, Length bins, Priors) ----
+MetaData <- readxl::read_excel(xlsx_file, sheet = "Meta_Data")
+ModelYear <- seq(1950, 2025)
+
+ny <- length(ModelYear) # 76
+nr <- 4  # areas
+ns <- 2  # stocks
+na <- 36 # ages: 0, 1, 2, ... 35
+nm <- 1  # seasons
+
+len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes") %>%
+  filter(LengthClass <= 300)
+nl <- nrow(len_bin) # 12
+
+# MSA object for model structure
+Dmodel <- new(
+  "Dmodel",
+  ny = ny,
+  nm = nm,
+  na = na,
+  nl = nl,
+  nr = nr,
+  ns = ns,
+  lbin = len_bin$LengthClass, # Length-12
+  lmid = len_bin$LengthClass + 0.5 * unique(diff(len_bin$LengthClass)),
+  Fmax = 3,
+  y_phi = 1,
+  nitF = 3,
+  nyinit = 2 * na, # Spool-up for 2 life cycles
+  condition = "catch"
+)
+
+# Add priors here as a character string that is evaluated during the model run
+# It really helps to know the internal model code in multiSA:::.MSA()
+
+if (FALSE) { # Not relevant for annual model
+  # Prior for proportion of stock in natal region in each season
+  prior_dist <- local({
+    d <- readxl::read_excel(xlsx_file, sheet = "Seasonal_Prior")
+
+    sapply(1:nrow(d), function(i) {
+      val <- d[i, ]
+
+      s <- ifelse(val["Ino"] == 1, 2, 1) # Ino = 1 represents WBFT, Ino = 2 represents EBFT
+
+      mov <- paste0("mov_ymarrs[1, , 1, , , ", s, "]")
+      start <- paste0("recdist_rs[, ", s, "]")
+
+      r <- val["Area"]
+
+      m <- paste0("log(", val["Index"], ")")
+      cv <- val["CV"]
+
+      paste0("calc_eqdist(", mov, ", m_start = 2, start = ", start, ")[", val["Season"], ", ", r, "] |> log() |> dnorm(", m, ", ", cv, ", log = TRUE)")
+    })
+  })
+
+  # Recruitment distribution prior for stock 2 in GOM
+  prior_recdist <- "dnorm(p$log_recdist_rs[1, 2], 0, 1.5, log = TRUE)"
+}
+
+# Sample recdist prior, i.e. why sd = 1.5 seems appropriate for a mostly uninformative uniform prior away from bounds
+if (FALSE) {
+  nsamp <- 1e5
+  nr <- 2
+  set.seed(324)
+  x <- rnorm(nsamp * (nr-1), 0, 1.5) %>%
+    matrix(nsamp, nr-1)
+  recdist <- apply(cbind(x, 0), 1, softmax)
+
+  png("figures/recdist_prior.png", widht = 4, height = 5, units = "in", res = 400)
+  par(mfrow = c(2, 1))
+  hist(recdist[1, ], xlab = "Recruitment proportion WBFT in GOM", main = NULL)
+  hist(recdist[2, ], xlab = "Recruitment proportion WBFT in WATL", main = NULL)
+  dev.off()
+}
+
+#Dmodel@prior <- c(prior_recdev, prior_dist, prior_recdist)
+
+
+
+
+
+
+
+
+#### Stock configurations with biological parameters (all fixed) ----
+Dstock <- new(
+  "Dstock",
+  m_spawn = 1,
+  m_advanceage = 1,
+  SRR_s = c("BH", "BH"),
+  delta_s = c(0.25, 0.25) # Spawning at start of season 2
+)
+
+# Length at age with Richards function and SD in length at age
+# EBFT parameters reduce to von Bertalanffy equation with A2 = 999, A1 = t0 implies L1 = 0, and p = 1
+growth_par <- data.frame(
+  Stock = c("EBFT", "WBFT"),
+  A1 = c(-0.97, 0),
+  A2 = c(999, 34),
+  L1 = c(0, 33),
+  L2 = c(318.85, 270.6),
+  K = c(0.093, 0.22),
+  p = c(1, -0.12),
+  a = c(3.50801e-5, 1.77054e-5),
+  b = c(2.878451, 3.001252)
+)
+readr::write_csv(growth_par, "tables/growth_par.csv")
+
+Dstock@len_ymas <- sapply(1:Dmodel@ns, function(s) {
+  A1 <- growth_par$A1[s]
+  A2 <- growth_par$A2[s]
+  L1 <- growth_par$L1[s]
+  L2 <- growth_par$L2[s]
+  K  <- growth_par$K[s]
+  p <- growth_par$p[s]
+
+  sapply(1:Dmodel@na, function(aa) {
+    sapply(1:Dmodel@nm, function(m) {
+      tt <- (aa - 1) + (m - 1)/Dmodel@nm # age 0, 0.25, 0.5, ...
+      ans <- L1^p + (L2^p - L1^p) * (1 - exp(-K * (tt - A1)))/(1 - exp(-K * (A2 - A1)))
+      rep(ans^(1/p), Dmodel@ny)
+    })
+  }, simplify = "array")
+}, simplify = "array")
+
+## Override May 20, 2026:
+## Use WBFT growth curve for both stocks
+Dstock@len_ymas[, , , 1] <- Dstock@len_ymas[, , , 2]
+
+Dstock@sdlen_ymas <- 0.06 * Dstock@len_ymas + 5.84
+
+# Stock weight at age
+Dstock@swt_ymas <- local({
+  swt_ymas <- array(NA_real_, dim(Dstock@len_ymas))
+  swt_ymas[, , , 1] <- growth_par$a[1] * Dstock@len_ymas[, , , 1] ^ growth_par$b[1]
+  swt_ymas[, , , 2] <- growth_par$a[2] * Dstock@len_ymas[, , , 2] ^ growth_par$b[2]
+  swt_ymas
+})
+
+# Define stock presence by area - define areas where stock can go to (no seasonal movement!)
+Dstock@presence_rs <- matrix(FALSE, Dmodel@nr, Dmodel@ns)
+Dstock@presence_rs[-1, 1] <- TRUE # EBFT can go to WATL, EATL, MED
+Dstock@presence_rs[-4, 2] <- TRUE # WBFT can go to GOM, WATL
+
+# Define areas where stocks can spawn
+Dstock@natal_rs <- matrix(0, Dmodel@nr, Dmodel@ns)
+Dstock@natal_rs[-1, 1] <- 1
+Dstock@natal_rs[-c(3:4), 2] <- 1
+
+#### Create two separate stock objects here:
+# A: Younger maturity ogive (identical for both stocks) IN CONJUNCTION with high M
+# B: Older maturity at age IN CONJUNCTION with low M and older senescence
+Dstock_A <- Dstock_B <- Dstock
+
+# Object A
+Dstock_A@mat_yas <- local({
+  mat_young <- rep(1, Dmodel@na)
+  mat_young[1:5] <- c(0, 0, 0, 0.25, 0.5) # ages 0-4; age 5+ = 1
+
+  array(mat_young, c(Dmodel@na, Dmodel@ny, Dmodel@ns)) %>%
+    aperm(c(2, 1, 3))
+})
+
+Dstock_A@M_yas <- local({
+
+  if (FALSE) {
+    ## This is from M3, which did not include age zero
+    M_high <- rep(NA_real_, Dmodel@na)
+    M_high[0:14 + 1] <- c(0.38, 0.38, 0.3, 0.24, 0.2, 0.18, 0.16, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.1) # age 0-14
+    M_high[15:25 + 1] <- 0.1
+    M_high[seq(26, Dmodel@na)] <- 0.1
+
+    array(M_high, c(Dmodel@na, Dmodel@ns, Dmodel@ny)) %>%
+      aperm(c(3, 1, 2))
+  } else {
+
+    # From SS3 where reference M = 0.1 at age 20
+    # Provided by A. Kimoto, May 20, 2026
+    M_high <- array(NA_real_, c(Dmodel@ny, Dmodel@na, Dmodel@ns))
+
+    # EBFT
+    M_high[, 1:16, 1] <- matrix(
+      c(0.50, 0.32, 0.27, 0.22, 0.19, 0.17, 0.15, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.11, 0.10),
+      Dmodel@ny, 16, byrow = TRUE
+    )
+
+    # WBFT
+    M_high[, 1:16, 2] <- matrix(
+      c(0.39, 0.33, 0.29, 0.25, 0.21, 0.19, 0.17, 0.15, 0.14, 0.13, 0.12, 0.12, 0.11, 0.11, 0.11, 0.10),
+      Dmodel@ny, 16, byrow = TRUE
+    )
+
+    M_high[, seq(17, Dmodel@na), ] <- 0.1
+
+    return(M_high)
+  }
+})
+
+# Object B
+Dstock_B@mat_yas <- local({
+  mat_E <- mat_W <- rep(1, Dmodel@na)
+  mat_E[1:9] <- c(0, 0, 0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9) # EBFT age 0-8; 9+ = 1
+  mat_W[1:13] <- c(0, 0, 0, 0, 0, 0, 0, 0.01, 0.04, 0.19, 0.56, 0.88, 0.98) # WBFT age 0-12; 13+ = 1
+
+  matd_yas <- array(NA_real_, c(Dmodel@ny, Dmodel@na, Dmodel@ns))
+  matd_yas[, , 1] <- matrix(mat_E, Dmodel@ny, Dmodel@na, byrow = TRUE)
+  matd_yas[, , 2] <- matrix(mat_W, Dmodel@ny, Dmodel@na, byrow = TRUE)
+  matd_yas
+})
+
+Dstock_B@M_yas <- local({
+  M_low <- rep(NA_real_, Dmodel@na)
+  M_low[0:14 + 1] <- c(0.36, 0.36, 0.27, 0.21, 0.17, 0.14, 0.12, 0.11, 0.1, 0.09, 0.09, 0.08, 0.08, 0.08, 0.08) # age 0-14
+  M_low[15:25 + 1] <- 0.07
+  M_low[seq(26, Dmodel@na)] <- 0.47
+
+  array(M_low, c(Dmodel@na, Dmodel@ns, Dmodel@ny)) %>%
+    aperm(c(3, 1, 2))
+})
+
+
+
+
+
+
+
+
+
+
+
+#### Fishery data - Catch (tonnes) ----
+Dfishery <- new("Dfishery")
+Dfishery@nf <- nrow(fleet_names)
+
+Catch <- readxl::read_excel(xlsx_file, sheet = "Catch") %>%
+  mutate(y = Year - ModelYear[1] + 1) %>%
+  summarise(Catch = sum(Catch), .by = c(Year, y, Area, Fleet)) %>%
+  mutate(Season = 1) %>%
+  as.matrix()
+Dfishery@Cobs_ymfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dfishery@nf, Dmodel@nr))
+Dfishery@Cobs_ymfr[Catch[, c("y", "Season", "Fleet", "Area")]] <- Catch[, "Catch"]
+
+### Equilibrium catch prior to first year of model:
+Dfishery@Cinit_mfr <- array(0.5 *Dfishery@Cobs_ymfr[1, , , ], c(Dmodel@nm, Dfishery@nf, Dmodel@nr))
+
+
+#### Fishery data - CAL ----
+
+# Exclude length bins > 300 cm (negligible)
+
+#len_bin <- readxl::read_excel(xlsx_file, sheet = "Length_classes") %>%
+#  filter(LengthClass <= 300)
+CAL <- readxl::read_excel(xlsx_file, sheet = "Length_Comp") %>%
+  filter(!(Fleet == 8 & Year < 1970)) %>%
+  filter(Len_class <= max(len_bin$Number)) %>%
+  mutate(y = Year - ModelYear[1] + 1) %>%
+  summarise(N = sum(N), .by = c(Year, y, Area, Fleet, Len_class)) %>%
+  mutate(Season = 1) %>%
+  as.matrix()
+stopifnot(length(unique(CAL[, "Len_class"])) == nrow(len_bin))
+
+Dfishery@CALobs_ymlfr <- array(0, c(Dmodel@ny, Dmodel@nm, Dmodel@nl, Dfishery@nf, Dmodel@nr))
+
+Dfishery@CALobs_ymlfr[CAL[, c("y", "Season", "Len_class", "Fleet", "Area")]] <- CAL[, "N"]
+Dfishery@CALN_ymfr <- apply(Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum) %>% log() %>% round(3)
+Dfishery@CALN_ymfr[is.infinite(Dfishery@CALN_ymfr)] <- 0
+
+Dfishery@fcomp_like <- "multinomial"
+
+# Dummy fleet 19 is PSNOR after 2015
+Dfishery@sel_f <- ifelse(fleet_names$Selectivity == "Logistic", "logistic_length", "dome_length") %>% c("dome_length")
+Dfishery@sel_block_yf <- matrix(1:Dfishery@nf, ny, Dfishery@nf, byrow = TRUE)
+Dfishery@sel_block_yf[ModelYear >= 2016, grepl("PSNOR", fleet_names$Code)] <- Dfishery@nf + 1
+
+stopifnot(all(apply(Dfishery@CALobs_ymlfr, 4, sum) > 0)) # Every fleet has length samples?
+
+
+#### Indices of abundance: CPUE and fishery-independent indices ----
+Dsurvey <- new("Dsurvey")
+
+# From M3 trial spec document
+len_cat <- data.frame(
+  Name = c("US_RR_66_114", "US_RR_115_144", "US_RR_177", "US_RR_145", "US_RR_195", "US_RR_66_144"),
+  Lmin = c(66, 115, 177, 145, 195, 66),
+  Lmax = c(114, 144, Inf, Inf, Inf, 144)
+) %>%
+  mutate(bin_min = Dmodel@lmid[findInterval(Lmin, Dmodel@lmid)],
+         bin_max = Dmodel@lmid[findInterval(Lmax, Dmodel@lmid)])
+
+cpue <- readxl::read_excel(xlsx_file, sheet = "CPUE") %>%
+  mutate(CV = as.numeric(CV), Index = as.numeric(Index))
+
+cpue_use <- c("SPN_BB", "SPN_FR_BB", "MOR_SPN_TRAP", "MOR_POR_TRAP", "JPN_LL_Eatl_Med",
+              "JPN_LL_NEAtl1", "JPN_LL_NEAtl2", "US_RR_66_144", "US_RR_177", "US_RR_145",
+              "US_RR_195", "MEXUS_GOM_PLL", "JPN_LL_West1", "JPN_LL_West2", "JPLL_GOM",
+              "CAN SWNS")
+cpue %>% filter(Name %in% cpue_use, is.na(Index) | is.na(CV))
+
+cpue_names <- summarise(
+  cpue,
+  n = n(),
+  Fleet = unique(Fleet),
+  Area = unique(Area),
+  .by = Name
+) %>%
+  mutate(Name2 = paste0("(", c(LETTERS, letters[1:4]), ") ", Name)) %>%
+  filter(Name %in% cpue_use) %>%
+  mutate(i = match(Name, cpue_use)) %>%
+  left_join(select(len_cat, Name, bin_min, bin_max), by = "Name") %>%
+  mutate(Fleet2 = ifelse(is.na(bin_min), Fleet, paste0(Fleet, "_", bin_min, "_", bin_max)))
+
+cpue_value <- cpue %>%
+  filter(Name %in% cpue_use) %>%
+  filter(!is.na(Index)) %>%
+  mutate(CV = ifelse(is.na(CV), 0.3, CV)) %>% # Assume this is for MOR_POR_TRAP where CV is consistently around 0.3 for other years
+  mutate(y = Year - ModelYear[1] + 1,
+         i = match(Name, cpue_names$Name) |> as.numeric()) %>%
+  mutate(delta = 0.25 * (Season - 1)) %>%
+  mutate(Season2 = 1) %>%
+  select(!Name) %>%
+  as.matrix()
+
+index <- readxl::read_excel(xlsx_file, sheet = "Survey") %>%
+  mutate(CV = as.numeric(CV), Index = as.numeric(Index)) %>%
+  filter(!is.na(Index))
+
+index_use <- c("FR_AER_SUV1", "FR_AER_SUV2", "MED_LAR_SUV", "GBYP_AER_SUV_BAR",
+               "GOM_LAR_SUV", "CAN_ACO_SUV1", "CAN_ACO_SUV2")
+index_names <- summarise(
+  index,
+  n = n(),
+  Area = unique(Area),
+  Stock = unique(Stock),
+  Type = unique(Type),
+  .by = Name
+) %>%
+  mutate(Name2 = paste0("(", 1:nrow(.), ") ", Name)) %>%
+  filter(Name %in% index_use) %>%
+  mutate(i = max(cpue_value[, "i"]) + as.numeric(match(Name, index_use))) %>%
+  mutate(Type = ifelse(grepl("FR_AER_SUV", Name), "age_2_4", Type))
+
+index_value <- index %>%
+  filter(Name %in% index_use) %>%
+  mutate(CV = ifelse(is.na(CV), 0.75, CV)) %>% # Assume this is for GBYP_EAR_SUV_BAR in 2024, CV in 2023 is 0.75
+  mutate(y = Year - ModelYear[1] + 1,
+         i = max(cpue_value[, "i"]) + as.numeric(match(Name, index_names$Name))) %>%
+  mutate(delta = 0.25 * (Season - 1)) %>%
+  mutate(Season2 = 1) %>%
+  select(!Name & !Type) %>%
+  as.matrix()
+
+# Surveys are CPUE, indices, and CKMRs
+Dsurvey@ni <- length(unique(cpue_value[, "i"])) +
+  length(unique(index_value[, "i"])) + 1
+Dsurvey@Iobs_ymi <- Dsurvey@Isd_ymi <- array(NA_real_, c(Dmodel@ny, Dmodel@nm, Dsurvey@ni))
+
+Dsurvey@Iobs_ymi[cpue_value[, c("y", "Season2", "i")]] <- cpue_value[, "Index"]
+Dsurvey@Iobs_ymi[index_value[, c("y", "Season2", "i")]] <- index_value[, "Index"]
+
+Dsurvey@Isd_ymi[cpue_value[, c("y", "Season2", "i")]] <- cpue_value[, "CV"]
+Dsurvey@Isd_ymi[index_value[, c("y", "Season2", "i")]] <- index_value[, "CV"]
+
+#### CKMR index
+Dsurvey@Iobs_ymi[match(2018, ModelYear), , Dsurvey@ni] <- 18000
+Dsurvey@Isd_ymi[match(2018, ModelYear), , Dsurvey@ni] <- 0.18
+
+Dsurvey@unit_i <- rep("B", Dsurvey@ni) # All indices have biomass units
+
+# Identify area and stock that each index samples. 1 = TRUE for index i in area r for stock s
+cpue_samp <- array(0, c(max(cpue_names$i), nr, ns))
+cpue_names_matrix <- cpue_names %>%
+  select(i, Area) %>%
+  as.matrix()
+cpue_samp <- sapply2(1:ns, function(s) {
+  cpue_samp <- array(0, c(max(cpue_names$i), nr))
+  cpue_samp[cpue_names_matrix[, c("i", "Area")]] <- 1
+  return(cpue_samp)
+})
+
+index_samp <- array(0, c(length(unique(index_names$i)), nr, ns))
+index_names_matrix <- index_names %>%
+  mutate(i = i - max(cpue_names[, "i"])) %>%
+  select(!Name & !Name2 & !Type) %>%
+  as.matrix()
+index_samp[index_names_matrix[, c("i", "Area", "Stock")]] <- 1
+
+CKMR_samp <- array(0, c(1, nr, ns))
+CKMR_samp[, , 2] <- 1
+
+Dsurvey@samp_irs <- abind::abind(cpue_samp, index_samp, CKMR_samp, along = 1)
+
+# Selectivity of indices
+# For CPUE, identify the fleet, also size range if necessary
+# For stock-specific indices, identify either B and SB
+Dsurvey@sel_i <- c(cpue_names$Fleet2, index_names$Type, "age_8_35")
+
+mutate(cpue_names, Fleet_mirror = fleet_names$FleetName[cpue_names$Fleet])
+
+# Set sampling to time step
+delta_i <- rbind(
+  cpue_value %>%
+    as.data.frame() %>%
+    mutate(delta = 0.25 * (Season - 1)) %>%
+    select(i, delta),
+  index_value %>%
+    as.data.frame() %>%
+    mutate(delta = 0.25 * (Season - 1)) %>%
+    select(i, delta)
+) %>%
+  summarise(delta = unique(delta), .by = i)
+
+Dsurvey@delta_i <- c(delta_i$delta, 0.25)
+
+# Fix q = 1 for CKMR
+Dsurvey@qest_i <- c(rep("est", Dsurvey@ni - 1), 1)
+
+
+
+
+
+
+
+Dtag <- new("Dtag")
+
+if (FALSE) {
+
+  #### Tag transitions ----
+  etag <- readr::read_csv(file.path("data", "Etag", "Etag_proportions_04.26.2026.csv")) %>%
+    mutate(AgeName = ageclass_key$Name[AgeClass]) #%>%
+  #summarise(N = sum(N), Nfr = sum(Nfr), .by = c(Stock, Quarter, From, To)) %>%
+  #mutate(p = N/Nfr, .by = c(Stock, Quarter, From))
+
+  etag_matrix <- etag %>%
+    mutate(s = ifelse(Stock == "EBFT", 1, 2),
+           y = 1,
+           fr = match(From, area_names$Name) %>% as.numeric(),
+           to = match(To, area_names$Name) %>% as.numeric()) %>%
+    select(y, s, Quarter, fr, to, N, Nfr, AgeClass, p) %>%
+    as.matrix()
+
+  Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 3, Dmodel@nr, Dmodel@nr, Dmodel@ns))
+  Dtag@tag_ymarrs[etag_matrix[, c("y", "Quarter", "AgeClass", "fr", "to", "s")]] <- etag_matrix[, "N"]
+
+  # Data informs all years equally (constant movement with years)
+  Dtag@tag_yy <- matrix(1, 1, Dmodel@ny)
+
+  # Three age classes in dataset
+  Dtag@tag_aa <- matrix(0, 3, Dmodel@na)
+  Dtag@tag_aa[1, 0:4 + 1] <- Dtag@tag_aa[2, 5:8 + 1] <- Dtag@tag_aa[3, 10:Dmodel@na] <- 1
+
+  # Multinomial distribution with sample size
+  Dtag@tag_like <- "multinomial"
+  Dtag@tagN_ymars <- apply(Dtag@tag_ymarrs, c(1, 2, 3, 4, 6), sum)
+
+}
+
+
+
+
+
+
+
+
+#### Fishery data - Stock of origin ----
+# Set 3 from A. Hanke
+# From genetics only - stratify by fleet (3) and year in the WATL
+Dfishery_SOO3 <- Dfishery
+Dfishery_SOO3@SC_aa <- matrix(1, 1, Dmodel@na)
+
+SOO3_fleet <- data.frame(
+  Fleet = c("CAN", "USA_1", "USA_2", "JPN"),
+  Code = c("RRCAN", "RRUSAFS", "RRUSAFB", "LLJPNnew")
+) %>%
+  left_join(fleet_names, by = "Code") %>%
+  mutate(f = 1:n())
+
+Dfishery_SOO3@SC_ff <- local({
+  SOO3_fleet_i <- as.matrix(select(SOO3_fleet, f, Number))
+  x <- matrix(0, nrow(SOO3_fleet), Dfishery@nf)
+  x[SOO3_fleet_i[, c("f", "Number")]] <- 1
+  x
+})
+
+SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions_JPN.csv")) %>%
+  mutate(
+    y = Year - ModelYear[1] + 1,  # year as integers
+    Seas = 1,
+    a = 1,                        # Age class 1 (aggregated all ages)
+    r = 2,                        # WATL
+    s = 2,                        # WBFT
+    logit_diff = qlogis(Predicted_Value) - qlogis(Lower_95),
+    logit_diff2 = qlogis(Upper_95) - qlogis(Predicted_Value),
+    diff = pmax(logit_diff, logit_diff2),
+    SE = 0.5 * diff
+  ) %>%
+  left_join(SOO3_fleet, by = "Fleet") %>%
+  select(!Fleet) %>%
+  rename(Fleet = Number) # Fleet
+SOO3_seas <- select(SOO3, y, Seas, a, Fleet, r, s, f, Predicted_Value, SE) %>%
+  as.matrix()
+
+# One age class, disparate fleets
+Dfishery_SOO3@SC_ymafrs <-
+  Dfishery_SOO3@SCstdev_ymafrs <-
+  array(NA, c(Dmodel@ny, Dmodel@nm, 1, nrow(SOO3_fleet), Dmodel@nr, Dmodel@ns))
+
+# WBFT
+Dfishery_SOO3@SC_ymafrs[SOO3_seas[, c("y", "Seas", "a", "f", "r", "s")]] <- SOO3_seas[, "Predicted_Value"]
+Dfishery_SOO3@SCstdev_ymafrs[SOO3_seas[, c("y", "Seas", "a", "f", "r", "s")]] <- round(SOO3_seas[, "SE"], 3)
+
+# EBFT
+Dfishery_SOO3@SC_ymafrs[, , , , , 1] <- 1 - Dfishery_SOO3@SC_ymafrs[, , , , , 2]
+Dfishery_SOO3@SCstdev_ymafrs[, , , , , 1] <- Dfishery_SOO3@SCstdev_ymafrs[, , , , , 2]
+
+
+
+
+
+
+
+
+#### Labels for plotting
+Dlabel <- new(
+  "Dlabel",
+  year = ModelYear,
+  age = 1:Dmodel@na - 1,
+  region = area_names$Name,
+  stock = c("EBFT", "WBFT"),
+  fleet = fleet_names$FleetName,
+  index = c(cpue_names$Name2, index_names$Name2, "WBFT CKMR")
+)
+
+
+
+
+
+
+
+
+
+#### Save objects
+dir_save <- "model_input/06.30.2026_annual_4area"
+if (!dir.exists(dir_save)) dir.create(dir_save)
+
+saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))
+saveRDS(Dstock_A, file.path(dir_save, "Dstock_A.rds"))
+saveRDS(Dstock_B, file.path(dir_save, "Dstock_B.rds"))
+saveRDS(Dfishery_SOO3, file.path(dir_save, "Dfishery_SOO3.rds"))
+saveRDS(Dsurvey, file.path(dir_save, "Dsurvey.rds"))
+saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
+saveRDS(Dlabel, file.path(dir_save, "Dlabel.rds"))
