@@ -3,7 +3,7 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_06.30.2026.csv")
+Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
 model_name <- paste0(Design$output_name[1:4], ".rds")
 
 for (j in 1:length(model_name)) {
@@ -11,7 +11,7 @@ for (j in 1:length(model_name)) {
   fit <- readRDS(file.path("model_output", paste0("fit_", i)))
 
   tictoc::tic()
-  fits <- do_jitter(fit, n = 10, amount = 0.25, seed = 23, cores = 3, use_fitted = FALSE, return_models = TRUE, do_sd = FALSE)
+  fits <- do_jitter(fit, n = 10, amount = 0.25, seed = 23, cores = 5, use_fitted = FALSE, return_models = TRUE, do_sd = FALSE)
   tictoc::toc()
 
   saveRDS(fits, file = file.path("jitter", paste0("jitter_", i)))

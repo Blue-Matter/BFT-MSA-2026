@@ -5,254 +5,58 @@ library(tidyverse)
 library(tictoc)
 library(parallel)
 
-# Data frame to describe multiple model runs (unique configuration in each row) ----
+source("99-functions-fit.R")
+
+#### Data frame to describe multiple model runs (unique configuration in each row) ----
+#### Possible arguments (columns in the data frame)
+# input_dir - directory of input model files
+# annual - logical for annual or seasonal model (need the correct corresponding directory name)
+# movement - logical for estimating movement
+# rec_devvector - logical for estimating rec devs as a dev vector (penalty to sum to zero)
+# initC_scalar - equilibrium catch (proportion to first year catch)
+# lambda_CAL - Lambda factor for length composition
+# lambda_SC - Lambda factor for stock mixing
+# lambda_tag - Lambda factor for tags (only for seasonal models)
+# SC_set - Stock mixing dataset to use (1, 2, or 3)
+#          1 = from A. Hanke by year, area, season (April 2026)
+#          2 = from I. Fraile by year, area, season (June 2026)
+#          3 = from A. Hanke by year and fleet in WATL (genetics only) (August 2026)
+# SC_subset - Subset of dataset to fit, only for SC_set = 1 or 2, either "all", "otolith", or "genetic"
+# SSB_prior - logical, whether to use CKMR estimate of Western SSB in 2018
+# SSB_sd - Numeric, decrease the SE of SSB prior
+# spat_prior - logical, whether to use spatial mixing priors
+# sel_prior - logical, whether to use sel prior
+# Wareas - Either 2 or 3 for number of areas where WBFT can inhabit
+# Eareas - Either 2 or 3 for number of areas where EBFT can inhabit
+# output_name - Filename to save model
+# model_name - Model name for figures
+
+# Annual model
 Design <- data.frame(
-  initC_scalar = c(0.5, 0.5, 0.5, 0.5, 1),                            # Equilibrium catch (proportion to first year catch)
-  dw_CAL = 0.01,                                                      # Lambda factor for length composition
-  dw_SC = c(0.01, 0.01, 0.01, 0.01, 0.01),                            # Lambda factor for stock of origin
-  SC_set = c(1, 1, 2, 2, 1),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
+  input_dir = c("model_input/06.30.2026_annual_2area", "model_input/06.30.2026_annual_4area",
+                "model_input/06.30.2026_annual_2area", "model_input/06.30.2026_annual_4area"),
+  annual = TRUE,
+  movement = FALSE,
+  rec_devvector = FALSE,
+  initC_scalar = 0.5,
+  lambda_CAL = 1,
+  lambda_SC = 0,
+  lambda_tag = 0,
+  SC_set = 3,
   SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, FALSE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
-  output_name = c("reference1_", "Wprior1_",      # File name of output
-                  "reference2_", "Wprior2_",
-                  "highinitC_") %>%
-    paste0("06.30.2026"),
-  model_name = c("SOO1", "SOO1 + W CKMR", "SOO2", "SOO2 + W CKMR", # Model name (for figures later on)
-                 "SOO1 + SSBprior + High inital Catch")
+  SSB_prior = FALSE,
+  SSB_sd = 0.18,
+  spat_prior = FALSE,
+  sel_prior = c(TRUE, TRUE, FALSE, FALSE),
+  fix_sel = c(FALSE, FALSE, TRUE, TRUE),
+  Wareas = c(1, 2, 1, 2),
+  Eareas = c(1, 2, 1, 2),
+  output_name = c("annual_selprior_2area_08.19", "annual_selprior_4area_08.19",
+                  "annual_fixsel_2area_08.19", "annual_fixsel_4area_08.19"),
+  model_name = c("Annual, 2 area", "Annual, 4 area",
+                 "Annual, 2 area, fixsel", "Annual, 4 area, fixsel")
 )
-readr::write_csv(Design, "tables/Design_06.30.2026.csv")
-
-# Data frame to describe multiple model runs (unique configuration in each row) ----
-Design <- data.frame(
-  initC_scalar = c(0.5, 0.5, 0.5, 0.5),                            # Equilibrium catch (proportion to first year catch)
-  dw_CAL = 0.01,                                                   # Lambda factor for length composition
-  dw_SC = c(0.1),                                                  # Lambda factor for stock of origin
-  SC_set = c(1, 1, 2, 2),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
-  SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, FALSE, TRUE),                         # Whether to include WBFT SSB prior
-  output_name = c("reference1_", "Wprior1_",      # File name of output
-                  "reference2_", "Wprior2_") %>%
-    paste0("07.03.2026"),
-  model_name = c("SOO1", "SOO1 + W CKMR", "SOO2", "SOO2 + W CKMR")
-)
-readr::write_csv(Design, "tables/Design_07.03.2026.csv")
-
-Design <- data.frame(
-  initC_scalar = c(0.5, 0.5, 0.5, 0.5),                            # Equilibrium catch (proportion to first year catch)
-  dw_CAL = 0.01,                                                   # Lambda factor for length composition
-  dw_SC = c(0.1),                                                  # Lambda factor for stock of origin
-  SC_set = c(1, 1, 2, 2),                                          # 1 = A. Hanke stock of origin; 2 = I. Fraile stock of origin
-  SC_subset = c("otolith", "genetic", "otolith", "genetic"),
-  SSB_prior = c(TRUE, TRUE, TRUE, TRUE),                      # Whether to include WBFT SSB prior
-  output_name = c("SOO1_oto_", "SOO1_gen_",      # File name of output
-                  "SOO2_oto_", "SOO2_gen_") %>%
-    paste0("07.03.2026a"),
-  model_name = c("SOO1 otolith", "SOO1 genetic", "SOO2 otolith", "SOO2 genetic")
-)
-readr::write_csv(Design, "tables/Design_07.03.2026a.csv")
-
-# Wrapper function that will fit a model for each row in the Design data frame ----
-wrapper_fn <- function(x = 1, Design) {
-
-  require(multiSA)
-  require(tidyverse)
-
-  dir_save <- "model_input/06.30.2026"
-
-  #### Make MSA data object from saved objects ----
-  if (Design$SC_set[x] == 1) {
-    Dfishery <- readRDS(file.path(dir_save, "Dfishery_SOO1.rds"))
-  } else {
-    Dfishery <- readRDS(file.path(dir_save, "Dfishery_SOO2.rds"))
-  }
-  dat <- new(
-    "MSAdata",
-    Dmodel = readRDS(file.path(dir_save, "Dmodel.rds")),
-    Dstock = readRDS(file.path(dir_save, "Dstock_A.rds")),
-    Dfishery = Dfishery,
-    Dsurvey = readRDS(file.path(dir_save, "Dsurvey.rds")),
-    Dtag = readRDS(file.path(dir_save, "Dtag.rds")),
-    Dlabel = readRDS(file.path(dir_save, "Dlabel.rds"))
-  )
-  dat@Dmodel@prior <- dat@Dmodel@prior[-c(1:2)] # Eliminate rec dev sum to zero penalty
-  dat@Dfishery@fcomp_like <- "multinomial"
-
-  # Downweight CAL
-  dat@Dfishery@lambdaCAL_f <- Design$dw_CAL[x]
-
-  # Set multinomial sample size to log(N)
-  dat@Dfishery@CALN_ymfr[] <- apply(dat@Dfishery@CALobs_ymlfr, c(1, 2, 4, 5), sum) |> log()
-  dat@Dfishery@CALN_ymfr[is.infinite(dat@Dfishery@CALN_ymfr)] <- 0
-
-  # Downweight SC
-  dat@Dfishery@lambdaSC_f <- rep(Design$dw_SC[x], 2)
-  dat@Dfishery@SCstdev_ymafrs[] <- dat@Dfishery@SCstdev_ymafrs + 0.1
-
-  if (Design$SC_subset[x] == "otolith") dat@Dfishery@lambdaSC_f[2] <- 0 # Set genetic to zero
-  if (Design$SC_subset[x] == "genetic") dat@Dfishery@lambdaSC_f[1] <- 0 # Set otolith to zero
-
-  # Rescale equilibrium catch
-  dat@Dfishery@Cinit_mfr <- array(
-    Design$initC_scalar[x] * dat@Dfishery@Cobs_ymfr[1, , , ],
-    c(dat@Dmodel@nm, dat@Dfishery@nf, dat@Dmodel@nr)
-  )
-
-  # Check data object
-  dat <- check_data(dat)
-
-  #### Starting parameters ----
-
-  # EBFT recruits in MED
-  # WBFT recruits in GOM, WATL
-  log_recdist_rs <- matrix(0, dat@Dmodel@nr, dat@Dmodel@ns)
-  log_recdist_rs[-4, 1] <- -1000
-  log_recdist_rs[3:4, 2] <- -1000
-
-  parameters_start <- list(
-    log_recdist_rs = log_recdist_rs,
-    #R0_s = c(5000, 1000),
-    R0_s = c(5000, 5000),
-    h_s = c(0.99, 0.6),
-    log_sdr_s = log(c(0.5, 0.5))
-  )
-
-  #### Fixing parameters ----
-  # NA = fix, integer = estimate, shared integers = shared parameter value
-
-  # We only estimate one recruitment distribution parameter: proportion recruitment in GOM for WBFT
-  # (Fix WATL parameter below)
-  map_recdist_rs <- matrix(NA, dat@Dmodel@nr, dat@Dmodel@ns)
-  map_recdist_rs[1, 2] <- 1
-
-  # Recruitment deviations
-  # All years for EBFT
-  # Only after 1960 for WBFT
-  map_log_rdev_ys <- matrix(NA, dat@Dmodel@ny, dat@Dmodel@ns)
-  map_log_rdev_ys[, 1] <- map_log_rdev_ys[dat@Dlabel@year > 1960, 2] <- TRUE
-  map_log_rdev_ys[!is.na(map_log_rdev_ys)] <- 1:sum(map_log_rdev_ys, na.rm = TRUE)
-
-  # Movement
-  # This can't be automated because there are data for 3 age classes in EBFT but only one age class in WBFT
-  # We create only one movement matrix for each stock
-
-  # Estimate EBFT attractivity terms for WATL, EATL, MED
-  # Estimate WBFT attractivity terms for GOM, WATL, EATL
-  # Attractivity is relative, estimate two parameters for 3 areas and use softmax transformation
-  map_g_ymars <- array(NA, c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@nr, dat@Dmodel@ns))
-  for (s in 1:dat@Dmodel@ns) {
-    g_s <- matrix(NA_real_, dat@Dmodel@nm, dat@Dmodel@nr)
-    if (s == 1) {
-      g_s[, -c(1:2)] <- TRUE
-      g_s[, -c(1:2)] <- 1:sum(g_s, na.rm = TRUE)
-    } else {
-      g_s[, -c(3:4)] <- TRUE
-      g_s[, -c(3:4)] <- max(map_g_ymars, na.rm = TRUE) + 1:sum(g_s, na.rm = TRUE)
-    }
-    map_g_ymars[, , , , s] <- array(g_s, c(dat@Dmodel@nm, dat@Dmodel@nr, dat@Dmodel@ny, dat@Dmodel@na)) %>%
-      aperm(c(3, 1, 4, 2))
-  }
-  range(map_g_ymars, na.rm = TRUE)
-
-  # Estimate EBFT and WBFT viscosity term by season (resistance to move from current area)
-  map_v_ymas <- matrix(seq(1, dat@Dmodel@nm * dat@Dmodel@ns), dat@Dmodel@nm, dat@Dmodel@ns) %>%
-    array(c(dat@Dmodel@nm, dat@Dmodel@ns, dat@Dmodel@ny, dat@Dmodel@na)) %>%
-    aperm(c(3, 1, 4, 2))
-
-  map <- list(
-    log_recdist_rs = factor(map_recdist_rs),
-    log_rdev_ys = factor(map_log_rdev_ys),
-    mov_g_ymars = map_g_ymars,
-    mov_v_ymas = map_v_ymas
-  )
-
-  #### Make full parameter and map listss ----
-  pars <- make_parameters(
-    dat,
-    start = parameters_start,
-    map = map,
-    est_mov = "gravity_fixed",
-    silent = TRUE
-  )
-
-  # Manually check movement matrix setup
-  #x <- array(0, c(36, 4, 4))
-  #x[, , 1] <- -1000
-  #x[, 1, ] <- 1000
-
-  #### Add selectivity prior?
-  add_sel_prior <- TRUE
-  if (add_sel_prior) {
-    #### Make fishery and rec dist. sel priors ----
-    prior_sel <- lapply(1:dat@Dfishery@nf, function(f) {
-
-      # Uninformative prior for length of full selectivity
-      p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.5, log = TRUE)")
-
-      #x <- rnorm(1e5, 0, 1.5)
-      #hist(plogis(x))
-
-      # Ascending limb with lognormal SD = 0.5
-      start_p2 <- round(pars$p$sel_pf[2, f], 2)
-      p2 <- paste0("dnorm(p$sel_pf[2, ", f, "], ", start_p2, ", 0.5, log = TRUE)")
-
-      #x <- rnorm(1e5, 0, 0.5)
-      #hist(exp(x))
-
-      # Descending limb with lognormal SD = 0.5
-      if (grepl("dome", dat@Dfishery@sel_f[f])) {
-        start_p3 <- round(pars$p$sel_pf[3, f], 2)
-        p3 <- paste0("dnorm(p$sel_pf[3, ", f, "], ", start_p3, ", 0.5, log = TRUE)")
-      } else {
-        p3 <- NULL
-      }
-
-      c(p1, p2, p3)
-    }) %>%
-      unlist()
-
-    dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_sel)
-  }
-
-  # With WBFT SSB prior
-  if (Design$SSB_prior[x]) {
-    dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), 2, dat@Dsurvey@ni] <- 0.05
-    dat@Dmodel@prior <- c(
-      dat@Dmodel@prior,
-      paste0("dnorm(log(q_i[", dat@Dsurvey@ni, "]), log(1), 0.01, log = TRUE)")
-    )
-  } else {
-    dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
-    dat@Dsurvey@lambdaI_i[dat@Dsurvey@ni] <- 0
-  }
-
-  # Fit model
-  fit <- fit_MSA(
-    dat,
-    pars$p,
-    pars$map,
-    pars$random,
-    run_model = TRUE,
-    do_sd = TRUE
-  )
-
-  # Save model object
-  file_out <- paste0("fit_", Design$output_name[x], ".rds")
-  saveRDS(fit, file.path("model_output", file_out))
-
-  # Can take a while to render document
-  if (FALSE) {
-    report(
-      fit,
-      name = Design$model_name[x],
-      dir = "model_output",
-      filename = paste0("report_", Design$output_name[x]),
-      open_file = FALSE
-    )
-  }
-
-  return(invisible(fit))
-}
-
+readr::write_csv(Design, "tables/Design_08.19.2026_annual.csv")
 
 # Fit all models in parallel or in a loop ----
 do_parallel <- TRUE
