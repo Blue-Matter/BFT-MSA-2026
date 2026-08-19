@@ -412,6 +412,9 @@ mutate(cpue_names, Fleet_mirror = fleet_names$FleetName[cpue_names$Fleet])
 # Assume sampling at beginning of the season
 Dsurvey@delta_i <- 0
 
+# Fix q = 1 for CKMR
+Dsurvey@qest_i <- c(rep("est", Dsurvey@ni - 1), 1)
+
 
 
 
@@ -463,153 +466,26 @@ Dtag@tagN_ymars <- apply(Dtag@tag_ymarrs, c(1, 2, 3, 4, 6), sum)
 
 
 #### Fishery data - Stock of origin ----
-#### DECISION with SOO1 and SOO2: Only include SOO data in the WATL and EATL!
-
-# Prep the data object further:
-# Three age classes 0-4, 5-8, 9+
-Dfishery@SC_aa <- matrix(0, 3, Dmodel@na)
-Dfishery@SC_aa[1, 0:4 + 1] <- Dfishery@SC_aa[2, 5:8 + 1] <- Dfishery@SC_aa[3, 10:Dmodel@na] <- 1
-
-Dfishery@SC_like <- "logitnormal"
-
-#### Separate dummy fleets by SOO type
-# Dummy fleets: 1st row = otolith microchemistry, 2nd row = genetics
-Dfishery@SC_ff <- matrix(1, 2, Dfishery@nf)
-
-# Set 1 from A. Hanke
-# Otolith
-SOO_otolith <- read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) %>%
-  filter(Region %in% c("WATL", "EATL")) %>%
-  mutate(
-    EBFT = N * (1 - Prob_West),
-    WBFT = N - EBFT,
-    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
-    r = match(Region, area_names$Name),
-    quarter = substr(Quarter, 2, 2) |> as.integer(),
-    y = fYear - ModelYear[1] + 1
-  ) %>%
-  reshape2::melt(
-    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
-    measure.vars = c("EBFT", "WBFT")
-  ) %>%
-  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 1) %>%
-  select(!variable) %>%
-  as.matrix()
-stopifnot(all(!is.na(SOO_otolith)))
-
-# Genetic
-SOO_genetic <- read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) %>%
-  filter(Region %in% c("WATL", "EATL")) %>%
-  mutate(
-    EBFT = N * (1 - Prob_West),
-    WBFT = N - EBFT,
-    f = 2,
-    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
-    r = match(Region, area_names$Name),
-    quarter = substr(Quarter, 2, 2) |> as.integer(),
-    y = fYear - ModelYear[1] + 1
-  ) %>%
-  reshape2::melt(
-    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
-    measure.vars = c("EBFT", "WBFT")
-  ) %>%
-  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 2) %>%
-  select(!variable) %>%
-  as.matrix()
-stopifnot(all(!is.na(SOO_genetic)))
-
-
-# 3 age classes and 2 dummy fleets
-Dfishery@SC_ymafrs <- array(0, c(Dmodel@ny, Dmodel@nm, 3, 2, Dmodel@nr, Dmodel@ns))
-Dfishery@SC_ymafrs[SOO_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO_otolith[, "value"]
-Dfishery@SC_ymafrs[SOO_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO_genetic[, "value"]
-
-Dfishery@SCstdev_ymafrs <- array(NA, dim(Dfishery@SC_ymafrs))
-Dfishery@SCstdev_ymafrs[SOO_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO_otolith[, "SE"]
-Dfishery@SCstdev_ymafrs[SOO_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO_genetic[, "SE"]
-
-
-# Set 2 values from Igaratza
-Dfishery_SOO2 <- Dfishery
-
-SOO2_otolith <- readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) %>%
-  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
-  filter(Region %in% c("WATL", "EATL")) %>%
-  rename(N = N_total, Prob_West = PropGOM) %>%
-  filter(!is.na(Prob_West)) %>%
-  mutate(
-    EBFT = N * (1 - Prob_West),
-    WBFT = N - EBFT,
-    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
-    r = match(Region, area_names$Name),
-    quarter = substr(Quarter, 2, 2) |> as.integer(),
-    y = Year - ModelYear[1] + 1
-  ) %>%
-  reshape2::melt(
-    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
-    measure.vars = c("EBFT", "WBFT")
-  ) %>%
-  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 1) %>%
-  select(!variable) %>%
-  as.matrix()
-stopifnot(all(!is.na(SOO2_otolith)))
-
-# Genetic
-SOO2_genetic <- readxl::read_excel(file.path("data", "SOO", "mixing_by_strataGEN.xlsx")) %>%
-  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
-  filter(Region %in% c("WATL", "EATL")) %>%
-  rename(N = N_total, Prob_West = PropGOM09) %>%
-  mutate(Prob_West = as.numeric(Prob_West), SE = as.numeric(SE)) %>%
-  filter(!is.na(Prob_West)) %>%
-  mutate(
-    EBFT = N * (1 - Prob_West),
-    WBFT = N - EBFT,
-    f = 2,
-    a = ifelse(grepl("0-4", fAGE), 1, ifelse(grepl("5-8", fAGE), 2, 3)),
-    r = match(Region, area_names$Name),
-    quarter = substr(Quarter, 2, 2) |> as.integer(),
-    y = Year - ModelYear[1] + 1
-  ) %>%
-  reshape2::melt(
-    id.vars = c("a", "y", "quarter", "r", "SE", "N"),
-    measure.vars = c("EBFT", "WBFT")
-  ) %>%
-  mutate(Stock = ifelse(variable == "EBFT", 1, 2), f = 2) %>%
-  select(!variable) %>%
-  as.matrix()
-stopifnot(all(!is.na(SOO2_genetic)))
-
-
-Dfishery_SOO2@SC_ymafrs <- array(0, c(Dmodel@ny, Dmodel@nm, 3, 2, Dmodel@nr, Dmodel@ns))
-Dfishery_SOO2@SC_ymafrs[SOO2_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_otolith[, "value"]
-Dfishery_SOO2@SC_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_genetic[, "value"]
-
-Dfishery_SOO2@SCstdev_ymafrs <- array(NA, dim(Dfishery@SC_ymafrs))
-Dfishery_SOO2@SCstdev_ymafrs[SOO2_otolith[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_otolith[, "SE"]
-Dfishery_SOO2@SCstdev_ymafrs[SOO2_genetic[, c("y", "quarter", "a", "f", "r", "Stock")]] <- SOO2_genetic[, "SE"]
-
-
-
 # Set 3 from A. Hanke
 # From genetics only - stratify by fleet and year in the WATL
 Dfishery_SOO3 <- Dfishery
 Dfishery_SOO3@SC_aa <- matrix(1, 1, Dmodel@na)
 
 SOO3_fleet <- data.frame(
-  Fleet = c("CAN", "USA_1", "USA_2"),
-  Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
+  Fleet = c("CAN", "USA_1", "USA_2", "JPN"),
+  Code = c("RRCAN", "RRUSAFS", "RRUSAFB", "LLJPNnew")
 ) %>%
   left_join(fleet_names, by = "Code") %>%
   mutate(f = 1:n())
 
 Dfishery_SOO3@SC_ff <- local({
   SOO3_fleet_i <- as.matrix(select(SOO3_fleet, f, Number))
-  x <- matrix(0, 3, Dfishery@nf)
+  x <- matrix(0, nrow(SOO3_fleet), Dfishery@nf)
   x[SOO3_fleet_i[, c("f", "Number")]] <- 1
   x
 })
 
-SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
+SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions_JPN.csv")) %>%
   mutate(
     y = Year - ModelYear[1] + 1,  # year as integers
     a = 1,                        # Age class 1 (aggregated all ages)
@@ -637,7 +513,7 @@ SOO3_seas <- SOO3 %>% #left_join(SOO3, SOO3_dom_catch) %>%
 # One age class, disparate fleets
 Dfishery_SOO3@SC_ymafrs <-
   Dfishery_SOO3@SCstdev_ymafrs <-
-  array(NA, c(Dmodel@ny, Dmodel@nm, 1, 3, Dmodel@nr, Dmodel@ns))
+  array(NA, c(Dmodel@ny, Dmodel@nm, 1, nrow(SOO3_fleet), Dmodel@nr, Dmodel@ns))
 
 # WBFT
 Dfishery_SOO3@SC_ymafrs[SOO3_seas[, c("y", "Dom_Quarter", "a", "f", "r", "s")]] <- SOO3_seas[, "Predicted_Value"]
@@ -681,8 +557,6 @@ if (!dir.exists(dir_save)) dir.create(dir_save)
 saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))
 saveRDS(Dstock_A, file.path(dir_save, "Dstock_A.rds"))
 saveRDS(Dstock_B, file.path(dir_save, "Dstock_B.rds"))
-saveRDS(Dfishery, file.path(dir_save, "Dfishery_SOO1.rds"))
-saveRDS(Dfishery_SOO2, file.path(dir_save, "Dfishery_SOO2.rds"))
 saveRDS(Dfishery_SOO3, file.path(dir_save, "Dfishery_SOO3.rds"))
 saveRDS(Dsurvey, file.path(dir_save, "Dsurvey.rds"))
 saveRDS(Dtag, file.path(dir_save, "Dtag.rds"))
