@@ -125,8 +125,8 @@ plot_recdev <- function(fits, model_name) {
   g <- recdev %>%
     mutate(year = as.numeric(year)) %>%
     ggplot(aes(year, dev)) +
-    geom_line() +
-    geom_point(size = 0.5) +
+    geom_line(linewidth = 0.25) +
+    geom_point(size = 0.75) +
     geom_hline(yintercept = 0, linetype = 2) +
     facet_grid(vars(stock), vars(model), scales = "free_y") +
     labs(x = "Year", y = "Recruitment deviation")
@@ -199,27 +199,21 @@ plot_sel_index <- function(fits, model_name, type = c("age", "length")) {
 plot_fit_index <- function(fits, model_name, type = c("cpue", "fi")) {
   type <- match.arg(type)
   dat <- get_MSAdata(fits[[1]])
-  index_all <- lapply(1:length(fits), function(i) {
 
-    index_all <- lapply(1:dat@Dsurvey@ni, function(ii) {
-      plot_index(fits[[i]], i = ii, zoom = TRUE, figure = FALSE)
-    }) %>%
-      bind_rows() %>%
+  index_all <- lapply(1:length(fits), function(i) {
+    plot_index(fits[[i]], i = 1:dat@Dsurvey@ni, zoom = TRUE, figure = FALSE) %>%
       mutate(resid = log(obs/pred)) %>%
       mutate(name = factor(name, dat@Dlabel@index)) %>%
       mutate(model = model_name[i])
-
-    return(index_all)
   }) %>%
     bind_rows() %>%
-    mutate(model = factor(model, Design$model_name))
-
-  unique_ind <- unique(index_all$name)
+    mutate(model = factor(model, Design$model_name)) %>%
+    filter(!is.na(name))
 
   if (type == "cpue") {
 
     g <- index_all %>%
-      filter(name %in% unique_ind[1:16]) %>%
+      filter(name %in% dat@Dlabel@index[1:16]) %>%
       ggplot(aes(year, obs)) +
       geom_point(size = 0.5) +
       geom_linerange(linewidth = 0.1, aes(ymin = lwr, ymax = upr)) +
@@ -231,7 +225,7 @@ plot_fit_index <- function(fits, model_name, type = c("cpue", "fi")) {
       guides(colour = guide_legend(ncol = 2))
   } else {
     g <- index_all %>%
-      filter(!name %in% unique_ind[1:16]) %>%
+      filter(!name %in% dat@Dlabel@index[1:16]) %>%
       ggplot(aes(year, obs)) +
       geom_point(size = 0.5) +
       geom_linerange(linewidth = 0.1, aes(ymin = lwr, ymax = upr)) +
@@ -242,6 +236,7 @@ plot_fit_index <- function(fits, model_name, type = c("cpue", "fi")) {
       theme(legend.position = "bottom") +
       guides(colour = guide_legend(ncol = 2))
   }
+
   g
 }
 
@@ -262,7 +257,9 @@ plot_fit_soo3 <- function(fits, model_name) {
     bind_rows() %>%
     mutate(model = factor(model, model_name)) %>%
     mutate(lwr = plogis(qlogis(obs) - 1.96 * se),
-           upr = plogis(qlogis(obs) + 1.96 * se))
+           upr = plogis(qlogis(obs) + 1.96 * se)) %>%
+    mutate(N = sum(pred, na.rm = TRUE), .by = c(year, ff, aa, region, model)) %>%
+    filter(N > 0)
 
   g <- soo3 %>%
     mutate(season = 4 * (year - floor(year)) + 1) %>%
@@ -274,7 +271,7 @@ plot_fit_soo3 <- function(fits, model_name) {
     coord_cartesian(ylim = c(0, 1)) +
     labs(x = "Year", y = "Proportion WBFT",
          colour = "Model prediction",
-         title = "Stock of origin") +
+         title = "Stock mixing in WATL") +
     theme(legend.position = "bottom")
 
   g
@@ -287,7 +284,7 @@ plot_fit_CAL_agg <- function(fits, model_name) {
   CAL <- lapply(1:length(fits), function(i) {
     lapply(1:dat@Dfishery@nf, function(f) {
       lapply(1:dat@Dmodel@nr, function(r) {
-        x <- plot_CAL(fits[[i]], f = f, r = r, do_mean = FALSE, figure = FALSE)
+        x <- plot_CAL(fits[[i]], f = f, r = r, do_mean = FALSE, agg = FALSE, figure = FALSE)
         if (is.null(x)) x <- data.frame()
         return(x)
       }) %>%
@@ -340,18 +337,8 @@ plot_mlen <- function(fits, model_name) {
     as.character()
 
   mlen <- lapply(1:length(fits), function(i) {
-
-    lapply(1:dat@Dfishery@nf, function(f) {
-      lapply(1:dat@Dmodel@nr, function(r) {
-        x <- plot_CAL(fits[[i]], f = f, r = r, do_mean = TRUE, figure = FALSE)
-        if (is.null(x)) x <- data.frame()
-        return(x)
-      }) %>%
-        bind_rows()
-    }) %>%
-      bind_rows() %>%
+    plot_CAL(fits[[i]], do_mean = TRUE, figure = FALSE) %>%
       mutate(model = model_name[i])
-
   }) %>%
     bind_rows() %>%
     mutate(fleet = factor(fleet, dat@Dlabel@fleet)) %>%
@@ -359,11 +346,13 @@ plot_mlen <- function(fits, model_name) {
     arrange(year) %>%
     mutate(panel = paste0(fleet, " (", region, ")") %>% factor(panel_factor))
 
-  g <- mlen %>%
-    filter(!is.na(pred)) %>%
-    ggplot(aes(year, pred)) +
-    geom_point(shape = 1, aes(y = obs)) +
-    geom_line(aes(colour = model)) +
+  mlen_obs <- filter(mlen, !is.na(obs))
+  mlen_pred <- filter(mlen, !is.na(pred))
+  g <- mlen_obs %>%
+    ggplot(aes(year, obs)) +
+    geom_point(shape = 1, size = 0.75) +
+    geom_line(linewidth = 0.1) +
+    geom_line(data = mlen_pred, aes(y = pred, colour = model)) +
     facet_wrap(vars(panel), ncol = 4) +
     theme(legend.position = "bottom") +
     labs(x = "Year", y = "Mean length", fill = NULL, colour = NULL)
@@ -374,91 +363,123 @@ plot_mlen <- function(fits, model_name) {
 
 
 ## Tag transitions ----
-#tags <- lapply(1:length(fits), function(i) {
-#
-#  lapply(1:3, function(ac) {
-#    lapply(1:2, function(s) {
-#      x <- plot_tagmov(fits[[i]], s = s, aa = ac, figure = FALSE)
-#      if (is.null(x)) data.frame() else {
-#        x %>%
-#          mutate(N = sum(obs), .by = c(stock, aa, from, season)) %>%
-#          mutate(obs = obs/sum(obs), .by = c(stock, aa, from, season))
-#      }
-#    }) %>%
-#      bind_rows()
-#  }) %>%
-#    bind_rows() %>%
-#    mutate(model = Design$model_name[i])
-#}) %>%
-#  bind_rows() %>%
-#  mutate(obs = ifelse(is.na(obs), 0, obs)) %>%
-#  mutate(model = factor(model, Design$model_name))
-#
-#plot_tags <- function(tags, title = NULL, type = c("departure", "arrival")) {
-#  type <- match.arg(type)
-#
-#  tags_plot <- tags %>%
-#    mutate(m = strsplit(as.character(season), "Season ") %>% sapply(getElement, 2) %>% as.integer()) %>%
-#    mutate(season_arrive = paste("Season", ifelse(m == 4, 1, m + 1))) %>%
-#    mutate(from_num = match(from, c("GOM", "WATL", "EATL", "MED"))) %>%
-#    mutate(to_num = match(to, c("GOM", "WATL", "EATL", "MED"))) %>%
-#    mutate(from_label = paste("Origin:", from) %>% factor(paste("Origin:", c("GOM", "WATL", "EATL", "MED"))),
-#           to_label = paste("Destination:", to) %>% factor(paste("Destination:", c("GOM", "WATL", "EATL", "MED"))))
-#
-#  if (type == "departure") {
-#    Nsamp <- tags_plot %>%
-#      filter(model %in% unique(model)[1]) %>%
-#      summarise(N_from = unique(N), .by = c(season, from, from_label, from_num))
-#
-#    g <- tags_plot %>%
-#      ggplot(aes(to_num, pred)) +
-#      facet_grid(vars(from_label), vars(season)) +
-#      geom_text(data = Nsamp, aes(label = paste("N =", N_from)), x = Inf, y = Inf, hjust = "inward", vjust = "inward") +
-#      geom_line(aes(y = obs), colour = "black") +
-#      geom_point(aes(y = obs), shape = 1, colour = "black") +
-#      geom_line(aes(colour = model), linewidth = 1) +
-#      scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
-#      coord_cartesian(ylim = c(0, 1)) +
-#      labs(x = "Destination", y = "Proportion (departure from origin)", colour = "Model", title = title) +
-#      theme(legend.position = "bottom") +
-#      guides(colour = guide_legend(ncol = 2))
-#  } else {
-#
-#    g <- tags_plot %>%
-#      ggplot(aes(from_num, pred)) +
-#      facet_grid(vars(to_label), vars(season_arrive)) +
-#      geom_line(aes(y = obs), colour = "black") +
-#      geom_point(aes(y = obs), shape = 1, colour = "black") +
-#      geom_line(aes(colour = model), linewidth = 1) +
-#      scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
-#      coord_cartesian(ylim = c(0, 1)) +
-#      labs(x = "Origin", y = "Proportion (arrival)", colour = "Model", title = title) +
-#      theme(legend.position = "bottom") +
-#      guides(colour = guide_legend(ncol = 2))
-#  }
-#  g
-#}
-#
-#
-#aa <- c("0-4", "5-8", "9+")
-#g <- filter(tags, stock == "EBFT", aa == 1, model %in% Design$model_name[3:5]) %>%
-#  plot_tags(title = paste("EBFT, Age", aa[1]))
-#ggsave(file.path(dir_save, "compare_tag_EBFT_a1.png"), g, height = 6, width = 6)
-#
-#g <- filter(tags, stock == "EBFT", aa == 2, model %in% Design$model_name[3:5]) %>%
-#  plot_tags(title = paste("EBFT, Age", aa[2]))
-#ggsave(file.path(dir_save, "compare_tag_EBFT_a2.png"), g, height = 6, width = 6)
-#
-#g <- filter(tags, stock == "EBFT", aa == 3, model %in% Design$model_name[3:5]) %>%
-#  plot_tags(title = paste("EBFT, Age", aa[3]))
-#ggsave(file.path(dir_save, "compare_tag_EBFT_a3.png"), g, height = 6, width = 6)
-#
-#g <- filter(tags, stock == "WBFT", model %in% Design$model_name[3:5]) %>%
-#  plot_tags(title = "WBFT")
-#ggsave(file.path(dir_save, "compare_tag_WBFT.png"), g, height = 6, width = 6)
-#
-#
-#
+tags <- lapply(1:length(fits), function(i) {
+
+  lapply(1:3, function(ac) {
+    lapply(1:2, function(s) {
+      x <- plot_tagmov(fits[[i]], s = s, aa = ac, figure = FALSE)
+      if (is.null(x)) data.frame() else {
+        x %>%
+          mutate(N = sum(obs), .by = c(stock, aa, from, season)) %>%
+          mutate(obs = obs/sum(obs), .by = c(stock, aa, from, season))
+      }
+    }) %>%
+      bind_rows()
+  }) %>%
+    bind_rows() %>%
+    mutate(model = Design$model_name[i])
+}) %>%
+  bind_rows() %>%
+  mutate(obs = ifelse(is.na(obs), 0, obs)) %>%
+  mutate(model = factor(model, Design$model_name))
+
+plot_tags <- function(fits, model_name, title = NULL, type = c("departure", "arrival"),
+                      stock = c("EBFT", "WBFT"), ac = 1) {
+  stock <- match.arg(stock)
+  type <- match.arg(type)
+
+  tags <- lapply(1:length(fits), function(i) {
+    x <- plot_tagmov(fits[[i]], s = ifelse(stock == "EBFT", 1, 2), aa = ac, figure = FALSE)
+    if (is.null(x)) {
+      data.frame()
+    } else {
+      x %>%
+        mutate(N = sum(obs), .by = c(stock, aa, from, season)) %>%
+        mutate(obs = obs/sum(obs), .by = c(stock, aa, from, season)) %>%
+        mutate(model = model_name[i])
+    }
+  }) %>%
+    bind_rows() %>%
+    mutate(obs = ifelse(is.na(obs), 0, obs)) %>%
+    mutate(model = factor(model, model_name))
+
+  tags_plot <- tags %>%
+    mutate(m = strsplit(as.character(season), "Season ") %>% sapply(getElement, 2) %>% as.integer()) %>%
+    mutate(season_arrive = paste("Season", ifelse(m == 4, 1, m + 1))) %>%
+    mutate(from_num = match(from, c("GOM", "WATL", "EATL", "MED"))) %>%
+    mutate(to_num = match(to, c("GOM", "WATL", "EATL", "MED"))) %>%
+    mutate(from_label = paste("Origin:", from) %>% factor(paste("Origin:", c("GOM", "WATL", "EATL", "MED"))),
+           to_label = paste("Destination:", to) %>% factor(paste("Destination:", c("GOM", "WATL", "EATL", "MED"))))
+
+  if (type == "departure") {
+    Nsamp <- tags_plot %>%
+      filter(model == model_name[1]) %>%
+      mutate(N_from = unique(N), .by = c(season, from, from_label, from_num))
+
+    g <- tags_plot %>%
+      ggplot(aes(to_num, pred)) +
+      facet_grid(vars(from_label), vars(season)) +
+      geom_text(data = Nsamp, aes(label = paste("N =", N_from)),
+                x = ifelse(stock == "EBFT", -Inf, Inf), y = 1, hjust = "inward", vjust = "inward") +
+      geom_line(aes(y = obs), colour = "black") +
+      geom_point(aes(y = obs), shape = 1, colour = "black") +
+      geom_line(aes(colour = model), linewidth = 1) +
+      scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
+      coord_cartesian(ylim = c(0, 1)) +
+      labs(x = "Destination", y = "Proportion (departure from origin)", colour = "Model", title = title) +
+      theme(legend.position = "bottom") +
+      guides(colour = guide_legend(ncol = 2))
+  } else {
+
+    g <- tags_plot %>%
+      ggplot(aes(from_num, pred)) +
+      facet_grid(vars(to_label), vars(season_arrive)) +
+      geom_line(aes(y = obs), colour = "black") +
+      geom_point(aes(y = obs), shape = 1, colour = "black") +
+      geom_line(aes(colour = model), linewidth = 1) +
+      scale_x_continuous(breaks = 1:4, labels = c("GOM", "WATL", "EATL", "MED")) +
+      coord_cartesian(ylim = c(0, 1)) +
+      labs(x = "Origin", y = "Proportion (arrival)", colour = "Model", title = title) +
+      theme(legend.position = "bottom") +
+      guides(colour = guide_legend(ncol = 2))
+  }
+  g
+}
+
+
+plot_mov_gg <- function(fits, model_name, stock = c("EBFT", "WBFT")) {
+  stock <- match.arg(stock)
+
+  mov <- lapply(1:length(fits), function(i) {
+    plot_mov(fits[[i]], s = ifelse(stock == "EBFT", 1, 2), figure = FALSE) %>%
+      mutate(model = model_name[i])
+  }) %>%
+    bind_rows() %>%
+    mutate(Destination = ifelse(Destination == "Equilibrium", "Eq.", Destination))
+
+  areas <- c("GOM", "WATL", "EATL", "MED", "", "Eq.")
+  val <- seq(0, 1, 0.01)
+  cols <- hcl.colors(length(val), palette = "Peach", rev = TRUE) %>% structure(names = val)
+
+  unique_areas <- unique(mov$Origin)
+  areas <- c(unique_areas, "", "Eq.")
+
+  g <- mov %>%
+    mutate(x = match(Destination, areas), yy = match(Origin, areas)) %>%
+    ggplot(aes(x, yy, fill = round(proportion, 2) %>% factor())) +
+    geom_tile(colour = "black") +
+    geom_text(size = 2.75, aes(label = round(proportion, 2) %>% format())) +
+    facet_grid(vars(model), vars(Season)) +
+    scale_fill_manual(values = cols) +
+    guides(fill = "none") +
+    scale_x_continuous(breaks = 1:length(areas), labels = areas) +
+    scale_y_continuous(breaks = 1:length(unique_areas), labels = areas[1:length(unique_areas)]) +
+    coord_transform(reverse = "y", expand = FALSE) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    labs(x = "Destination", y = "Origin", fill = "Proportion")
+  g
+}
+
 ## SRR ----
 #SRR <- lapply(1:nrow(Design), function(i) {
 #  lapply(1:2, function(s) {
@@ -514,53 +535,6 @@ plot_mlen <- function(fits, model_name) {
 #ggsave(file.path(dir_save, "compare_SRR.png"), g, height = 4, width = 6)
 #
 #
-## Plot movement ----
-#mov <- lapply(1:nrow(Design), function(i) {
-#  lapply(1:2, function(s) {
-#    plot_mov(fits[[i]], s = s, figure = FALSE)
-#  }) %>%
-#    bind_rows() %>%
-#    mutate(model = Design$model_name[i])
-#}) %>%
-#  bind_rows() %>%
-#  mutate(Destination = ifelse(Destination == "Equilibrium", "Eq.", Destination)) %>%
-#  filter(model %in% Design$model_name[1:4])
-#
-#plot_mov_gg <- function(mov) {
-#  areas <- c("GOM", "WATL", "EATL", "MED", "", "Eq.")
-#  val <- seq(0, 1, 0.01)
-#  cols <- hcl.colors(length(val), palette = "Peach", rev = TRUE) %>% structure(names = val)
-#
-#  unique_areas <- unique(mov$Origin)
-#  areas <- c(unique_areas, "", "Eq.")
-#
-#  g <- mov %>%
-#    mutate(x = match(Destination, areas), yy = match(Origin, areas)) %>%
-#    ggplot(aes(x, yy, fill = round(proportion, 2) %>% factor())) +
-#    geom_tile(colour = "black") +
-#    geom_text(size = 2.75, aes(label = round(proportion, 2) %>% format())) +
-#    facet_grid(vars(model), vars(Season)) +
-#    scale_fill_manual(values = cols) +
-#    guides(fill = "none") +
-#    scale_x_continuous(breaks = 1:length(areas), labels = areas) +
-#    scale_y_continuous(breaks = 1:length(unique_areas), labels = areas[1:length(unique_areas)]) +
-#    coord_transform(reverse = "y", expand = FALSE) +
-#    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-#    labs(x = "Destination", y = "Origin", fill = "Proportion")
-#  g
-#}
-#
-#g <- mov %>%
-#  filter(stock == "EBFT", Origin != "GOM", Destination != "GOM") %>%
-#  plot_mov_gg() +
-#  labs(title = "EBFT")
-#ggsave(file.path(dir_save, "compare_mov_EBFT.png"), g, height = 6, width = 6)
-#
-#g <- mov %>%
-#  filter(stock == "WBFT", Origin != "MED", Destination != "MED") %>%
-#  plot_mov_gg() +
-#  labs(title = "WBFT")
-#ggsave(file.path(dir_save, "compare_mov_WBFT.png"), g, height = 6, width = 6)
 #
 #
 ## Catch residual
@@ -605,47 +579,42 @@ plot_mlen <- function(fits, model_name) {
 #ggsave(file.path(dir_save, "compare_depletion.png"), g, height = 3.5, width = 5)
 #
 ## SSB by season ----
-#SB_season <- lapply(1:nrow(Design), function (i) {
-#  fit <- fits[[i]]
-#  dat <- get_MSAdata(fit)
-#
-#  N_ymars <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ]
-#  mat_ymars <- array(
-#    dat@Dstock@mat_yas,
-#    c(dat@Dmodel@ny, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nm, dat@Dmodel@nr)
-#  ) %>%
-#    aperm(c(1, 4, 2, 5, 3))
-#  fec_ymars <- array(
-#    dat@Dstock@swt_ymas,
-#    c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nr)
-#  ) %>%
-#    aperm(c(1, 2, 3, 5, 4))
-#
-#  S_ymrs <- apply(N_ymars * mat_ymars * fec_ymars, c(1, 2, 4, 5), sum) %>%
-#    structure(dimnames = list(
-#      year = dat@Dlabel@year,
-#      season = dat@Dlabel@season,
-#      region = dat@Dlabel@region,
-#      stock = dat@Dlabel@stock
-#    ))
-#  reshape2::melt(S_ymrs, value.name = "S") %>%
-#    mutate(model = Design$model_name[i])
-#}) %>%
-#  bind_rows()
-#
-#for (i in 1:nrow(Design)) {
-#  g <- SB_season %>%
-#    filter(model == Design$model_name[i]) %>%
-#    #filter(stock == "EBFT") %>%
-#    ggplot(aes(year, S, fill = stock)) +
-#    geom_col(width = 1) +
-#    facet_grid(vars(region), vars(season)) +
-#    labs(x = "Year", y = "Mature biomass", fill = "Stock", title = Design$model_name[i]) +
-#    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
-#    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
-#  ggsave(file.path(dir_save, paste0("SSB_area_season_model", i, ".png")), g, height = 5, width = 6)
-#}
-#
+plot_SB_season <- function(fit) {
+  dat <- get_MSAdata(fit)
+
+  N_ymars <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ]
+  mat_ymars <- array(
+    dat@Dstock@mat_yas,
+    c(dat@Dmodel@ny, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nm, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 4, 2, 5, 3))
+  fec_ymars <- array(
+    dat@Dstock@swt_ymas,
+    c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@ns, dat@Dmodel@nr)
+  ) %>%
+    aperm(c(1, 2, 3, 5, 4))
+
+  S_ymrs <- apply(N_ymars * mat_ymars * fec_ymars, c(1, 2, 4, 5), sum) %>%
+    structure(dimnames = list(
+      year = dat@Dlabel@year,
+      season = dat@Dlabel@season,
+      region = dat@Dlabel@region,
+      stock = dat@Dlabel@stock
+    ))
+  SB_season <- reshape2::melt(S_ymrs, value.name = "S")
+
+  g <- SB_season %>%
+    #filter(stock == "EBFT") %>%
+    ggplot(aes(year, S, fill = stock)) +
+    geom_col(width = 1) +
+    facet_grid(vars(region), vars(season)) +
+    labs(x = "Year", y = "Mature biomass", fill = "Stock") +
+    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+  g
+}
+
+
 ## Total biomass by season ----
 #if (FALSE) {
 #  B_season <- lapply(1:nrow(Design), function (i) {
