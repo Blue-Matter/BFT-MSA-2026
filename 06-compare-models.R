@@ -135,11 +135,13 @@ g <- plot_fit_index(fits, Design$model_name, "fi")
 ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 6)
 
 # SOO ----
-g <- plot_fit_soo3(fits, Design$model_name)
+g <- plot_fit_soo3(fits, Design$model_name) +
+  guides(colour = guide_legend(ncol = 2))
 ggsave(file.path(dir_save, "compare_SOO3_fit.png"), g, height = 5, width = 8)
 
 # CAL ----
-g <- plot_fit_CAL_agg(fits, Design$model_name)
+g <- plot_fit_CAL_agg(fits, Design$model_name) +
+  guides(colour = guide_legend(ncol = 2))
 ggsave(file.path(dir_save, "compare_CAL_agg_fit.png"), g, height = 8, width = 6)
 
 #summarise(g@data, CAL_mode = lmid[which.max(obs)], .by = fleet) %>%
@@ -147,7 +149,8 @@ ggsave(file.path(dir_save, "compare_CAL_agg_fit.png"), g, height = 8, width = 6)
 #         init = fits[[2]]@obj$report(fits[[2]]@obj$par)$selconv_pf[1, 1:18])
 
 # Mean length ----
-g <- plot_mlen(fits, Design$model_name)
+g <- plot_mlen(fits, Design$model_name) +
+  guides(colour = guide_legend(ncol = 2))
 ggsave(file.path(dir_save, "compare_mlen_fit.png"), g, height = 8, width = 6)
 
 
