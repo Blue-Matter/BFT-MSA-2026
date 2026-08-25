@@ -3,15 +3,15 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
-model_name <- paste0(Design$output_name[1:4], ".rds")
+Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")
+model_name <- paste0(Design$output_name[1], ".rds")
 
 for (j in 1:length(model_name)) {
   i <- model_name[j]
   fit <- readRDS(file.path("model_output", paste0("fit_", i)))
 
   tictoc::tic()
-  fits <- do_jitter(fit, n = 10, amount = 0.25, seed = 23, cores = 5, use_fitted = FALSE, return_models = TRUE, do_sd = FALSE)
+  fits <- do_jitter(fit, n = 10, amount = 0.25, seed = 23, cores = 5, use_fitted = FALSE, return_models = TRUE, do_sd = TRUE)
   tictoc::toc()
 
   saveRDS(fits, file = file.path("jitter", paste0("jitter_", i)))
@@ -48,6 +48,6 @@ if (FALSE) {
     geom_point() +
     geom_line() +
     labs(x = "Jitter Run", title = Design$model_name[j])
-  ggsave("figures/jitter_run.png", g, height = 6, width = 8)
+  ggsave("figures/jitter_run_08.24.png", g, height = 6, width = 8)
 
 }

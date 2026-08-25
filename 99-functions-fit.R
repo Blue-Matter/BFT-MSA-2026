@@ -60,7 +60,6 @@ wrapper_fn <- function(x = 1, Design) {
   }
 
   #### Starting parameters ----
-
   log_recdist_rs <- matrix(0, dat@Dmodel@nr, dat@Dmodel@ns)
 
   if (Design$movement[x]) {
@@ -121,7 +120,7 @@ wrapper_fn <- function(x = 1, Design) {
   # Don't estimate last two years
   # Otherwise: All years for EBFT, Only after 1960 for WBFT
   map_log_rdev_ys <- matrix(0, dat@Dmodel@ny, dat@Dmodel@ns)
-  map_log_rdev_ys[, 1] <- map_log_rdev_ys[dat@Dlabel@year > 1961, 2] <- 1
+  map_log_rdev_ys[, 1] <- map_log_rdev_ys[dat@Dlabel@year > 1960, 2] <- 1
   map_log_rdev_ys[seq(-1, 0) + dat@Dmodel@ny, ] <- 0
 
   #map_log_rdev_ys[, 2] <- 0
@@ -143,6 +142,7 @@ wrapper_fn <- function(x = 1, Design) {
   # Attractivity is relative, there is always one less degree of freedom than the number of areas
   # For example, estimate two parameters for 3 areas and use softmax transformation
   if (Design$movement[x] && !Design$annual[x]) {
+    prior_mov <- NULL
     map_g_ymars <- array(NA, c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@nr, dat@Dmodel@ns))
 
     for (s in 1:dat@Dmodel@ns) {
@@ -152,7 +152,6 @@ wrapper_fn <- function(x = 1, Design) {
         g_s[, i] <- TRUE
         g_s[, i] <- 1:sum(g_s, na.rm = TRUE)
       } else {
-
         if (Design$Wareas[x] == 2) {
           dat@Dstock@presence_rs[3, 2] <- FALSE # Turn off WATL presence in EATL (r = 3, s = 2)
           i <- 1
@@ -164,6 +163,15 @@ wrapper_fn <- function(x = 1, Design) {
       }
       map_g_ymars[, , , , s] <- array(g_s, c(dat@Dmodel@nm, dat@Dmodel@nr, dat@Dmodel@ny, dat@Dmodel@na)) %>%
         aperm(c(3, 1, 4, 2))
+
+      prior_mov <- c(
+        prior_mov,
+        sapply(1:dat@Dmodel@nm, function(m) {
+          sapply(i, function(r) {
+            paste0("dnorm(p$mov_g_ymars[1, ", m, ", 1, ", r, ", ", s, "], 0, 1.5, log = TRUE)")
+          })
+        }) %>% as.character()
+      )
     }
     range(map_g_ymars, na.rm = TRUE)
 
@@ -172,16 +180,20 @@ wrapper_fn <- function(x = 1, Design) {
       array(c(dat@Dmodel@nm, dat@Dmodel@ns, dat@Dmodel@ny, dat@Dmodel@na)) %>%
       aperm(c(3, 1, 4, 2))
 
+    prior_mov <- c(
+      prior_mov,
+      sapply(1:dat@Dmodel@nm, function(m) {
+        sapply(1:dat@Dmodel@ns, function(s) {
+          paste0("dnorm(p$mov_v_ymas[1, ", m, ", 1, ", s, "], 0, 1.5, log = TRUE)")
+        })
+      }) %>% as.character()
+    )
+
     map$mov_g_ymars <- map_g_ymars
     map$mov_v_ymas <- map_v_ymas
 
-    # Add movement prior
-    #dat@Dmodel@prior <- c(
-    #  dat@Dmodel@prior,
-    #  "sum(dnorm(p$mov_g_ymars[1, 1:4, 1, 1:4, 1:2], 0, 1.5, log = TRUE))",
-    #  "sum(dnorm(p$mov_v_ymas[1, 1:4, 1, 1:2], 0, 1.5, log = TRUE))"
-    #)
-
+    # Add logit prior to avoid going to extreme values
+    dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_mov)
   }
 
   #if (Design$fix_sel[x]) {
@@ -212,7 +224,7 @@ wrapper_fn <- function(x = 1, Design) {
     prior_sel <- lapply(1:nb, function(f) {
 
       # Uninformative prior for length of full selectivity
-      p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1, log = TRUE)")
+      p1 <- paste0("dnorm(p$sel_pf[1, ", f, "], 0, 1.5, log = TRUE)")
       #x <- rnorm(1e5, 0, 1.5)
       #hist(plogis(x))
 
@@ -240,11 +252,12 @@ wrapper_fn <- function(x = 1, Design) {
     dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_sel)
   }
 
+  dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
+
   # Add CKMR estimate of WBFT SSB
   if (!Design$SSB_prior[x]) {
     # Set CKMR survey likelihood weight to zero
-    dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
-    dat@Dsurvey@lambdaI_i[dat@Dsurvey@ni] <- 0
+    dat@Dsurvey@lambdaI_i[dat@Dlabel@index == "WBFT_CKMR"] <- 0
   } else {
     dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), ifelse(Design$annual[x], 1, 2), dat@Dsurvey@ni] <- Design$SSB_sd[x]
   }
