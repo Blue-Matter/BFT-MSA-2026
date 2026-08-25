@@ -206,4 +206,28 @@ if (any(Design$movement)) {
 
 }
 
-# Compare SSB by model ----
+# Compare SSB with M3 and SS3 ----
+.g <- plot_SSB(fits, Design$model_name)
+M3 <- readr::read_csv("tables/M3_SSB.csv") %>%
+  mutate(S = 1e-3 * S)
+SS3 <- readr::read_csv("tables/SS3_SSB.csv") %>%
+  mutate(stock = ifelse(area == "WATL", "WBFT", "EBFT"))
+
+SSB <- .g@data %>%
+  mutate(model = paste("MSA:", model)) %>%
+  summarise(S = sum(S), .by = c(year, stock, model)) %>%
+  rbind(dplyr::select(M3, year, stock, S, model)) %>%
+  rbind(dplyr::select(SS3, year, stock, S, model)) %>%
+  mutate(software = ifelse(grepl("M3", model), "M3",
+                           ifelse(grepl("SS3", model), "SS3", "MSA"))) %>%
+  arrange(year)
+
+g <- ggplot(SSB, aes(year, S, colour = model, group = model)) +
+  geom_line() +
+  facet_grid(vars(stock), vars(software), scales = "free_y") +
+  expand_limits(y = 0) +
+  labs(x = "Year", y = "Spawning biomass", colour = NULL) +
+  theme(legend.position = "bottom") +
+  guides(colour = guide_legend(nrow = 4))
+ggsave(file.path(dir_save, "compare_SSB_M3_SS3.png"), g, height = 5, width = 6)
+
