@@ -4,8 +4,6 @@ library(tidyverse)
 
 source("99-functions-compare.R")
 
-#Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
-
 # Load design data frame of model fits
 Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[c(1, 2, 4), ] %>%
   mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
@@ -26,12 +24,16 @@ dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
 table_suffix <- "08.19_seasonal_VAST_CKMR02"
 
 Design <- rbind(
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ],
+  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 5), ],
   readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")[1, ]
 ) %>%
-  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO", "(4) M: CKMR+SOO"))
+  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO", "(4) Mov: CKMR+SOO"))
 dir_save <- "figures/fit/compare_08.19_seasonal_movement"
 table_suffix <- "08.19_seasonal_movement"
+
+Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
+dir_save <- "figures/fit/compare_08.19_annual"
+table_suffix <- "08.19_annual"
 
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
@@ -154,8 +156,34 @@ g <- plot_mlen(fits, Design$model_name) +
 ggsave(file.path(dir_save, "compare_mlen_fit.png"), g, height = 8, width = 6)
 
 
+# Only for models with stock-specific selectivity
+if (any(Design$est_stocksel)) {
+  j <- which(Design$est_stocksel)
+  j <- 4
 
+  # Plot F by stock ----
+  g <- fits[[j]]@report$F_ymafrs %>%
+    apply(c(1, 2, 4, 5, 6), max) %>%
+    structure(
+      dimnames = list(year = dat@Dlabel@year,
+                      season = seq(1, dat@Dmodel@nm),
+                      fleet = dat@Dlabel@fleet,
+                      region = dat@Dlabel@region,
+                      stock = dat@Dlabel@stock)
+    ) %>%
+    reshape2::melt(id.vars = "F") %>%
+    filter(region == "WATL") %>%
+    filter(sum(value) > 0, .by = fleet) %>%
+    summarise(value = sum(value), .by = c(year, fleet, stock, region)) %>%
+    #filter(diff(value) != 0, .by = c(year, fleet, region)) %>%
+    ggplot(aes(year, value, linetype = stock)) +
+    geom_line() +
+    facet_wrap(vars(fleet), scales = "free_y") +
+    labs(x = "Year", y = "Fishing mortality (per year)", linetype = NULL, title = "WATL") +
+    theme(legend.position = "bottom")
+  ggsave(file.path(dir_save, "F_stock_WATL.png"), g, height = 5, width = 6)
 
+}
 
 
 

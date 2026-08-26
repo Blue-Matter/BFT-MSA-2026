@@ -128,9 +128,19 @@ wrapper_fn <- function(x = 1, Design) {
   map_log_rdev_ys[map_log_rdev_ys > 0] <- 1:sum(map_log_rdev_ys, na.rm = TRUE)
   map_log_rdev_ys[map_log_rdev_ys == 0] <- NA
 
+  # Stock selectivity
+  map_log_q_fs <- matrix(NA, dat@Dfishery@nf, dat@Dmodel@ns)
+  if (Design$est_stocksel[x]) {
+    map_log_q_fs[colSums(dat@Dfishery@SC_ff) > 0, 2] <- 1
+    map_log_q_fs[!is.na(map_log_q_fs)] <- 1:sum(map_log_q_fs, na.rm = TRUE)
+  } else {
+    map_log_q_fs <- matrix(NA, dat@Dfishery@nf, dat@Dmodel@ns)
+  }
+
   map <- list(
     log_recdist_rs = factor(map_recdist_rs),
-    log_rdev_ys = factor(map_log_rdev_ys)
+    log_rdev_ys = factor(map_log_rdev_ys),
+    log_q_fs = factor(map_log_q_fs)
   )
 
   # Movement
