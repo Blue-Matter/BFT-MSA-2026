@@ -8,14 +8,13 @@ library(parallel)
 source("99-functions-fit.R")
 
 # Load design data frame
-#Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
 #Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")
 #Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")
-Design <- rbind(
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv"),
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")
-)
-#Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
+#Design <- rbind(
+#  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv"),
+#  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")
+#)
+Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
 
 # Fit all models in parallel or in a loop ----
 do_parallel <- TRUE
@@ -26,8 +25,7 @@ if (do_parallel) {
   tictoc::tic()
   fits <- parallel::parLapplyLB(
     cl,
-    X = 6:7,
-    #X = 1:nrow(Design),
+    X = 1:nrow(Design),
     wrapper_fn,
     Design = Design
   )

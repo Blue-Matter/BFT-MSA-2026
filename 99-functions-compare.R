@@ -363,26 +363,6 @@ plot_mlen <- function(fits, model_name) {
 
 
 ## Tag transitions ----
-tags <- lapply(1:length(fits), function(i) {
-
-  lapply(1:3, function(ac) {
-    lapply(1:2, function(s) {
-      x <- plot_tagmov(fits[[i]], s = s, aa = ac, figure = FALSE)
-      if (is.null(x)) data.frame() else {
-        x %>%
-          mutate(N = sum(obs), .by = c(stock, aa, from, season)) %>%
-          mutate(obs = obs/sum(obs), .by = c(stock, aa, from, season))
-      }
-    }) %>%
-      bind_rows()
-  }) %>%
-    bind_rows() %>%
-    mutate(model = Design$model_name[i])
-}) %>%
-  bind_rows() %>%
-  mutate(obs = ifelse(is.na(obs), 0, obs)) %>%
-  mutate(model = factor(model, Design$model_name))
-
 plot_tags <- function(fits, model_name, title = NULL, type = c("departure", "arrival"),
                       stock = c("EBFT", "WBFT"), ac = 1) {
   stock <- match.arg(stock)

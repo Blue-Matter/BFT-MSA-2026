@@ -46,6 +46,7 @@ Design <- data.frame(
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
+  est_stocksel = FALSE,
   Wareas = 2,
   Eareas = c(2, 2, 3, 3),
   output_name = paste0("seasonal_selprior", 1:4, "_08.19"),
@@ -70,6 +71,7 @@ Design <- data.frame(
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
+  est_stocksel = FALSE,
   Wareas = 2,
   Eareas = c(2, 3, 3),
   output_name = paste0("seasonal_selprior", 2:4, "_08.19a"),
@@ -77,28 +79,29 @@ Design <- data.frame(
 )
 readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_CKMR02.csv")
 
-Design <- data.frame(
-  input_dir = "model_input/06.30.2026_VAST",
-  annual = FALSE,
-  movement = FALSE,
-  rec_devvector = FALSE,
-  initC_scalar = 0.5,
-  lambda_CAL = 1,
-  lambda_SC = c(0, 0, 0, 1),
-  lambda_tag = 0,
-  SC_set = 3,
-  SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
-  SSB_sd = 0.18,
-  spat_prior = FALSE,
-  sel_prior = TRUE,
-  fix_sel = FALSE,
-  Wareas = 2,
-  Eareas = c(2, 2, 3, 3),
-  output_name = paste0("seasonal_selprior", 1:4, "_08.19c"),
-  model_name = c("1. NM, No CKMR", "2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO")
-)
-readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST.csv")
+#Design <- data.frame(
+#  input_dir = "model_input/06.30.2026_VAST",
+#  annual = FALSE,
+#  movement = FALSE,
+#  rec_devvector = FALSE,
+#  initC_scalar = 0.5,
+#  lambda_CAL = 1,
+#  lambda_SC = c(0, 0, 0, 1),
+#  lambda_tag = 0,
+#  SC_set = 3,
+#  SC_subset = "all",
+#  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
+#  SSB_sd = 0.18,
+#  spat_prior = FALSE,
+#  sel_prior = TRUE,
+#  fix_sel = FALSE,
+#  est_stocksel = FALSE,
+#  Wareas = 2,
+#  Eareas = c(2, 2, 3, 3),
+#  output_name = paste0("seasonal_selprior", 1:4, "_08.19c"),
+#  model_name = c("1. NM, No CKMR", "2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO")
+#)
+#readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST.csv")
 
 Design <- data.frame(
   input_dir = "model_input/06.30.2026_VAST",
@@ -167,6 +170,7 @@ Design <- data.frame(
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
+  est_stocksel = FALSE,
   Wareas = c(1, 2, 1, 2),
   Eareas = c(1, 2, 1, 2),
   output_name = c("annual_selprior1_2area_08.19", "annual_selprior1_4area_08.19",

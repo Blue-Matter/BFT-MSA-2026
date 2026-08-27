@@ -87,7 +87,7 @@ wrapper_fn <- function(x = 1, Design) {
     #R0_s = c(5000, 1000),
     R0_s = c(5000, 5000),
     h_s = c(0.99, 0.6),
-    log_sdr_s = log(c(0.5, 0.2))
+    log_sdr_s = log(c(0.5, 0.5))
   )
 
   #### Fixing parameters ----

@@ -5,23 +5,23 @@ library(tidyverse)
 source("99-functions-compare.R")
 
 # Load design data frame of model fits
-Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[c(1, 2, 4), ] %>%
-  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-dir_save <- "figures/fit/compare_08.19_seasonal"
-table_suffix <- "08.19_seasonal"
-
-Design <- rbind(
-  readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
-  readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 3), ]
-) %>%
-  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
-table_suffix <- "08.19_seasonal_CKMR02"
-
-Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
-  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
-table_suffix <- "08.19_seasonal_VAST_CKMR02"
+#Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[c(1, 2, 4), ] %>%
+#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
+#dir_save <- "figures/fit/compare_08.19_seasonal"
+#table_suffix <- "08.19_seasonal"
+#
+#Design <- rbind(
+#  readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
+#  readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 3), ]
+#) %>%
+#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
+#dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
+#table_suffix <- "08.19_seasonal_CKMR02"
+#
+#Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
+#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
+#dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
+#table_suffix <- "08.19_seasonal_VAST_CKMR02"
 
 Design <- rbind(
   readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 5), ],
@@ -31,9 +31,9 @@ Design <- rbind(
 dir_save <- "figures/fit/compare_08.19_seasonal_movement"
 table_suffix <- "08.19_seasonal_movement"
 
-Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
-dir_save <- "figures/fit/compare_08.19_annual"
-table_suffix <- "08.19_annual"
+#Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
+#dir_save <- "figures/fit/compare_08.19_annual"
+#table_suffix <- "08.19_annual"
 
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
