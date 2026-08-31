@@ -84,7 +84,7 @@ plot_SSB <- function(fits, model_name, scales = "fixed") {
     ggplot(aes(year, S)) +
     facet_grid(vars(stock), vars(model), scales = scales) +
     geom_col(width = 1, aes(fill = region)) +
-    geom_pointrange(data = prior, size = 0.25, aes(ymin = lwr, ymax = upr)) +
+    geom_pointrange(data = prior, size = 0.05, aes(ymin = lwr, ymax = upr)) +
     labs(x = "Year", y = "Spawning stock biomass (season 2)", fill = NULL) +
     scale_fill_manual(values = multiSA:::make_color(length(unique(SSB$region)), "region")) +
     theme(legend.position = "bottom")
@@ -126,7 +126,7 @@ plot_recdev <- function(fits, model_name) {
     mutate(year = as.numeric(year)) %>%
     ggplot(aes(year, dev)) +
     geom_line(linewidth = 0.25) +
-    geom_point(size = 0.75) +
+    geom_point(size = 0.5) +
     geom_hline(yintercept = 0, linetype = 2) +
     facet_grid(vars(stock), vars(model), scales = "free_y") +
     labs(x = "Year", y = "Recruitment deviation")

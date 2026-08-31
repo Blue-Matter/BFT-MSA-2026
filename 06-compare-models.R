@@ -4,32 +4,49 @@ library(tidyverse)
 
 source("99-functions-compare.R")
 
-# Load design data frame of model fits
-#Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[c(1, 2, 4), ] %>%
-#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-#dir_save <- "figures/fit/compare_08.19_seasonal"
-#table_suffix <- "08.19_seasonal"
-#
-#Design <- rbind(
-#  readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
-#  readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 3), ]
-#) %>%
-#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-#dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
-#table_suffix <- "08.19_seasonal_CKMR02"
-#
-#Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
-#  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO"))
-#dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
-#table_suffix <- "08.19_seasonal_VAST_CKMR02"
+# Load design data frame of model fits ----
+# This script is not automated, you need to choose one!
+if (FALSE) {
 
-Design <- rbind(
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 5), ],
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")[1, ]
-) %>%
-  mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(3) NM: CKMR+SOO", "(4) Mov: CKMR+SOO"))
-dir_save <- "figures/fit/compare_08.19_seasonal_movement"
-table_suffix <- "08.19_seasonal_movement"
+  Design <- rbind(
+    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1:2, ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[1, ]
+  ) %>%
+    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR, CV = 0.18", "(2b) NM: CKMR, CV = 0.02"))
+  dir_save <- "figures/fit/compare_08.19_seasonal"
+  table_suffix <- "08.19_seasonal"
+
+}
+
+if (FALSE) {
+
+  Design <- rbind(
+    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 3), ]
+  ) %>%
+    mutate(model_name = c("(1) NM: no CKMR", "(2b) NM: CKMR", "(3) NM: CKMR+mixing"))
+  dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
+  table_suffix <- "08.19_seasonal_CKMR02"
+
+}
+
+if (FALSE) {
+  Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
+    mutate(model_name = c("(1) NM: no CKMR", "(2b) NM: CKMR", "(3) NM: CKMR+mixing"))
+  dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
+  table_suffix <- "08.19_seasonal_VAST_CKMR02"
+}
+
+if (FALSE) {
+  Design <- rbind(
+    readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 5), ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")[1, ]
+  ) %>%
+    mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR",
+                          "(3) NM: CKMR+SOO", "(4) Mov: CKMR+mixing"))
+  dir_save <- "figures/fit/compare_08.19_seasonal_movement"
+  table_suffix <- "08.19_seasonal_movement"
+}
 
 #Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
 #dir_save <- "figures/fit/compare_08.19_annual"
@@ -43,15 +60,13 @@ fits <- lapply(1:nrow(Design), function(i) {
 })
 dat <- get_MSAdata(fits[[1]])
 
-
-
 # Diagnostic stuff
 if (FALSE) {
-  # Adjacency matrix
 
+  # Adjacency matrix
   library(igraph)
 
-  H <- fits[[1]]@SD$env$hessian
+  H <- fits[[4]]@SD$env$hessian
   A <- (abs(H) > 0)  # adjacency matrix
 
   g <- graph_from_adjacency_matrix(A, mode = "undirected")
@@ -102,20 +117,20 @@ if (FALSE) {
 # Compare SSB in spawning season ----
 # Spawning biomass - common y-axis between stocks
 g <- plot_SSB(fits, Design$model_name)
-ggsave(file.path(dir_save, "compare_SSB.png"), g, height = 5, width = 6)
+ggsave(file.path(dir_save, "compare_SSB.png"), g, height = 3.5, width = 6)
 
 # Spawning biomass - separate axes by stock
 g <- plot_SSB(fits, Design$model_name, scales = "free_y")
-ggsave(file.path(dir_save, "compare_SSB2.png"), g, height = 5, width = 6)
+ggsave(file.path(dir_save, "compare_SSB2.png"), g, height = 3.5, width = 6)
 
 # Recruitment ----
 g <- plot_rec(fits, Design$model_name)
-ggsave(file.path(dir_save, "compare_rec.png"), g, height = 4, width = 6)
+ggsave(file.path(dir_save, "compare_rec.png"), g, height = 3, width = 6)
 
 g <- plot_recdev(fits, Design$model_name) +
   geom_linerange(linewidth = 0.1, aes(ymin = lwr, ymax = upr))
 #g <- plot_recdev(fits, Design$model_name)
-ggsave(file.path(dir_save, "compare_recdev.png"), g, height = 4, width = 6)
+ggsave(file.path(dir_save, "compare_recdev.png"), g, height = 3, width = 6)
 
 # Selectivity ----
 g <- plot_sel(fits, Design$model_name)
@@ -125,7 +140,7 @@ g <- plot_sel_index(fits, Design$model_name, type = "length")
 ggsave(file.path(dir_save, "compare_sel_cpue.png"), g, height = 8, width = 6)
 
 g <- plot_sel_index(fits, Design$model_name, type = "age")
-ggsave(file.path(dir_save, "compare_sel_index.png"), g, height = 5, width = 6)
+ggsave(file.path(dir_save, "compare_sel_index.png"), g, height = 4, width = 6)
 
 # Fit to indices ----
 # CPUE
@@ -134,17 +149,17 @@ ggsave(file.path(dir_save, "compare_CPUE_fit.png"), g, width = 6, height = 8)
 
 # Fishery-independent indices
 g <- plot_fit_index(fits, Design$model_name, "fi")
-ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 6)
+ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 5)
 
 # SOO ----
 g <- plot_fit_soo3(fits, Design$model_name) +
   guides(colour = guide_legend(ncol = 2))
-ggsave(file.path(dir_save, "compare_SOO3_fit.png"), g, height = 5, width = 8)
+ggsave(file.path(dir_save, "compare_SOO3_fit.png"), g, height = 6, width = 6)
 
 # CAL ----
 g <- plot_fit_CAL_agg(fits, Design$model_name) +
   guides(colour = guide_legend(ncol = 2))
-ggsave(file.path(dir_save, "compare_CAL_agg_fit.png"), g, height = 8, width = 6)
+ggsave(file.path(dir_save, "compare_CAL_agg_fit.png"), g, height = 7, width = 6)
 
 #summarise(g@data, CAL_mode = lmid[which.max(obs)], .by = fleet) %>%
 #  mutate(LFS = fits[[2]]@report$selconv_pf[1, 1:18],
@@ -159,7 +174,8 @@ ggsave(file.path(dir_save, "compare_mlen_fit.png"), g, height = 8, width = 6)
 # Only for models with stock-specific selectivity
 if (any(Design$est_stocksel)) {
   j <- which(Design$est_stocksel)
-  j <- 4
+  if (length(j) > 1) j <- which(Design$est_stocksel & Design$movement)
+  stopifnot(length(j) == 1)
 
   # Plot F by stock ----
   g <- fits[[j]]@report$F_ymafrs %>%
@@ -190,28 +206,28 @@ if (any(Design$est_stocksel)) {
 # Only for models with movement
 if (any(Design$movement)) {
   j <- which(Design$movement)
-  j <- 4
+  stopifnot(length(j) == 1)
 
   # Plot tags ----
   g <- plot_tags(fits[j], Design$model_name[j], stock = "EBFT") +
     labs(title = "EBFT, Age 0-4")
-  ggsave(file.path(dir_save, "compare_tag_EBFT_a1.png"), g, height = 6, width = 6)
+  ggsave(file.path(dir_save, "compare_tag_EBFT_a1.png"), g, height = 5, width = 6)
 
   g <- plot_tags(fits[j], Design$model_name[j], stock = "EBFT", ac = 2) +
     labs(title = "EBFT, Age 5-8")
-  ggsave(file.path(dir_save, "compare_tag_EBFT_a2.png"), g, height = 6, width = 6)
+  ggsave(file.path(dir_save, "compare_tag_EBFT_a2.png"), g, height = 5, width = 6)
 
   g <- plot_tags(fits[j], Design$model_name[j], stock = "EBFT", ac = 3) +
     labs(title = "EBFT, Age 9+")
-  ggsave(file.path(dir_save, "compare_tag_EBFT_a3.png"), g, height = 6, width = 6)
+  ggsave(file.path(dir_save, "compare_tag_EBFT_a3.png"), g, height = 5, width = 6)
 
   g <- plot_tags(fits[j], Design$model_name[j], stock = "WBFT", ac = 3) +
     labs(title = "WBFT, Age 9+")
-  ggsave(file.path(dir_save, "compare_tag_WBFT_a3.png"), g, height = 6, width = 6)
+  ggsave(file.path(dir_save, "compare_tag_WBFT_a3.png"), g, height = 5, width = 6)
 
   ## Plot movement ----
-  g <- plot_mov_gg(fits[j], Design$model_name[j])
-  g <- plot_mov_gg(fits[j], Design$model_name[j], stock = "WBFT")
+  #g <- plot_mov_gg(fits[j], Design$model_name[j])
+  #g <- plot_mov_gg(fits[j], Design$model_name[j], stock = "WBFT")
 
   png(file.path(dir_save, "mov_EBFT.png"), res = 400, width = 8, height = 6, units = "in")
   par(mar = c(5, 4, 1, 1))
