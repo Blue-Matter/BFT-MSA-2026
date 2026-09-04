@@ -12,7 +12,7 @@ if (FALSE) {
     readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1:2, ],
     readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[1, ]
   ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR, CV = 0.18", "(2b) NM: CKMR, CV = 0.02"))
+    mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR SD = 0.18", "(2a) NM: CKMR SD = 0.02"))
   dir_save <- "figures/fit/compare_08.19_seasonal"
   table_suffix <- "08.19_seasonal"
 
@@ -22,19 +22,32 @@ if (FALSE) {
 
   Design <- rbind(
     readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 3), ]
+    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 4), ]
   ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2b) NM: CKMR", "(3) NM: CKMR+mixing"))
+    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR", "(3) NM: CKMR+mixing"))
   dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
   table_suffix <- "08.19_seasonal_CKMR02"
 
 }
 
+#if (FALSE) {
+#  Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
+#    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR", "(3) NM: CKMR+mixing"))
+#  dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
+#  table_suffix <- "08.19_seasonal_VAST_CKMR02"
+#}
+
 if (FALSE) {
-  Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2b) NM: CKMR", "(3) NM: CKMR+mixing"))
-  dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
-  table_suffix <- "08.19_seasonal_VAST_CKMR02"
+
+  Design <- rbind(
+    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 4), ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02_movement.csv")[1, ]
+  ) %>%
+    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR",
+                          "(3) NM: CKMR+mixing", "(4) Mov: CKMR+mixing"))
+  dir_save <- "figures/fit/compare_08.19_seasonal_movement"
+  table_suffix <- "08.19_seasonal_movement"
 }
 
 if (FALSE) {
@@ -43,9 +56,9 @@ if (FALSE) {
     readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")[1, ]
   ) %>%
     mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR",
-                          "(3) NM: CKMR+SOO", "(4) Mov: CKMR+mixing"))
-  dir_save <- "figures/fit/compare_08.19_seasonal_movement"
-  table_suffix <- "08.19_seasonal_movement"
+                          "(3) NM: CKMR+mixing", "(4) Mov: CKMR+mixing"))
+  dir_save <- "figures/fit/compare_08.19_seasonal_movement_VAST"
+  table_suffix <- "08.19_seasonal_movement_VAST"
 }
 
 #Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
@@ -115,13 +128,13 @@ if (FALSE) {
 
 
 # Compare SSB in spawning season ----
-# Spawning biomass - common y-axis between stocks
-g <- plot_SSB(fits, Design$model_name)
-ggsave(file.path(dir_save, "compare_SSB.png"), g, height = 3.5, width = 6)
-
 # Spawning biomass - separate axes by stock
 g <- plot_SSB(fits, Design$model_name, scales = "free_y")
 ggsave(file.path(dir_save, "compare_SSB2.png"), g, height = 3.5, width = 6)
+
+# Spawning biomass - common y-axis between stocks
+g <- plot_SSB(fits, Design$model_name)
+ggsave(file.path(dir_save, "compare_SSB.png"), g, height = 3.5, width = 6)
 
 # Recruitment ----
 g <- plot_rec(fits, Design$model_name)
@@ -140,6 +153,7 @@ g <- plot_sel_index(fits, Design$model_name, type = "length")
 ggsave(file.path(dir_save, "compare_sel_cpue.png"), g, height = 8, width = 6)
 
 g <- plot_sel_index(fits, Design$model_name, type = "age")
+g@data <- filter(g@data, !grepl("CAN_ACO_SUV2", name))
 ggsave(file.path(dir_save, "compare_sel_index.png"), g, height = 4, width = 6)
 
 # Fit to indices ----
@@ -149,6 +163,7 @@ ggsave(file.path(dir_save, "compare_CPUE_fit.png"), g, width = 6, height = 8)
 
 # Fishery-independent indices
 g <- plot_fit_index(fits, Design$model_name, "fi")
+#g@data <- filter(g@data, !grepl("CAN_ACO_SUV2", name))
 ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 5)
 
 # SOO ----
@@ -178,26 +193,12 @@ if (any(Design$est_stocksel)) {
   stopifnot(length(j) == 1)
 
   # Plot F by stock ----
-  g <- fits[[j]]@report$F_ymafrs %>%
-    apply(c(1, 2, 4, 5, 6), max) %>%
-    structure(
-      dimnames = list(year = dat@Dlabel@year,
-                      season = seq(1, dat@Dmodel@nm),
-                      fleet = dat@Dlabel@fleet,
-                      region = dat@Dlabel@region,
-                      stock = dat@Dlabel@stock)
-    ) %>%
-    reshape2::melt(id.vars = "F") %>%
-    filter(region == "WATL") %>%
-    filter(sum(value) > 0, .by = fleet) %>%
-    summarise(value = sum(value), .by = c(year, fleet, stock, region)) %>%
-    #filter(diff(value) != 0, .by = c(year, fleet, region)) %>%
-    ggplot(aes(year, value, linetype = stock)) +
-    geom_line() +
-    facet_wrap(vars(fleet), scales = "free_y") +
-    labs(x = "Year", y = "Fishing mortality (per year)", linetype = NULL, title = "WATL") +
-    theme(legend.position = "bottom")
+  g <- plot_F_WATL(fits[[j]])
   ggsave(file.path(dir_save, "F_stock_WATL.png"), g, height = 5, width = 6)
+
+  # Plot stock composition in WATL catch ----
+  g <- plot_SC_WATL(fits[[j]])
+  ggsave(file.path(dir_save, "SC_fleet_WATL.png"), g, height = 5, width = 6)
 
 }
 
@@ -244,10 +245,9 @@ if (any(Design$movement)) {
     labs(title = Design$model_name[j])
   ggsave(file.path(dir_save, "SB_area_season.png"), g, height = 5, width = 6)
 
-  # Plot mature biomass by area & season ----
+  # Plot mature biomass by area & season (zoom in) ----
   g@facet$params$free$y <- TRUE
   ggsave(file.path(dir_save, "SB_area_season2.png"), g, height = 5, width = 6)
-
 }
 
 # Compare SSB with M3 and SS3 ----

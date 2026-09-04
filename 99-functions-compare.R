@@ -559,7 +559,7 @@ plot_mov_gg <- function(fits, model_name, stock = c("EBFT", "WBFT")) {
 #ggsave(file.path(dir_save, "compare_depletion.png"), g, height = 3.5, width = 5)
 #
 ## SSB by season ----
-plot_SB_season <- function(fit) {
+plot_SB_season <- function(fit, prop = FALSE) {
   dat <- get_MSAdata(fit)
 
   N_ymars <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ]
@@ -583,16 +583,106 @@ plot_SB_season <- function(fit) {
     ))
   SB_season <- reshape2::melt(S_ymrs, value.name = "S")
 
-  g <- SB_season %>%
-    #filter(stock == "EBFT") %>%
-    ggplot(aes(year, S, fill = stock)) +
-    geom_col(width = 1) +
-    facet_grid(vars(region), vars(season)) +
-    labs(x = "Year", y = "Mature biomass", fill = "Stock") +
-    scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
-    theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+  if (prop) {
+    g <- SB_season %>%
+      mutate(p = S/sum(S), .by = c(year, region, season)) %>%
+      filter(stock == "WBFT") %>%
+      ggplot(aes(year, p, fill = stock)) +
+      geom_line() +
+      facet_grid(vars(region), vars(season)) +
+      labs(x = "Year", y = "Proportion Western origin") +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  } else {
+
+    g <- SB_season %>%
+      #filter(stock == "EBFT") %>%
+      ggplot(aes(year, S, fill = stock)) +
+      geom_col(width = 1) +
+      facet_grid(vars(region), vars(season)) +
+      labs(x = "Year", y = "Mature biomass", fill = "Stock") +
+      scale_fill_manual(values = grDevices::hcl.colors(2, palette = "Set2")) +
+      theme(legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1))
+  }
+
   g
 }
+
+# Plot F by stock
+plot_F_WATL <- function(fit) {
+  dat <- get_MSAdata(fit)
+
+  F_stock <- fit@report$F_ymafrs %>%
+    apply(c(1, 2, 4, 5, 6), max) %>%
+    structure(
+      dimnames = list(year = dat@Dlabel@year,
+                      season = seq(1, dat@Dmodel@nm),
+                      fleet = dat@Dlabel@fleet,
+                      region = dat@Dlabel@region,
+                      stock = dat@Dlabel@stock)
+    ) %>%
+    reshape2::melt(id.vars = "F") %>%
+    filter(region == "WATL") %>%
+    filter(sum(value) > 0, .by = fleet) %>%
+    summarise(value = sum(value), .by = c(year, fleet, stock, region)) # Sum F across seasons
+
+  g <- F_stock %>%
+    #filter(diff(value) != 0, .by = c(year, fleet, region)) %>%
+    ggplot(aes(year, value, linetype = stock)) +
+    geom_line() +
+    facet_wrap(vars(fleet), scales = "free_y") +
+    labs(x = "Year", y = "Fishing mortality (per year)", linetype = NULL, title = "WATL") +
+    theme(legend.position = "bottom")
+
+  g
+}
+
+# Stock composition in WATL
+plot_SC_WATL <- function(fit) {
+  dat <- get_MSAdata(fit)
+
+  SC_fleet <- fit@report$CN_ymafrs %>%
+    apply(c(1, 4, 5, 6), sum) %>%
+    structure(
+      dimnames = list(year = dat@Dlabel@year,
+                      fleet = dat@Dlabel@fleet,
+                      region = dat@Dlabel@region,
+                      stock = dat@Dlabel@stock)
+    ) %>%
+    reshape2::melt() %>%
+    filter(region == "WATL") %>%
+    filter(sum(value) > 0, .by = fleet) %>%
+    mutate(p = value/sum(value), .by = c(year, fleet, region)) %>%
+    filter(stock == "WBFT", p > 0, !is.na(p))
+
+  SC_pop <- fit@report$N_ymars[1:dat@Dmodel@ny, , , , ] %>%
+    apply(c(1, 2, 4, 5), sum) %>%
+    structure(
+      dimnames = list(year = dat@Dlabel@year,
+                      season = seq(1, dat@Dmodel@nm),
+                      region = dat@Dlabel@region,
+                      stock = dat@Dlabel@stock)
+    ) %>%
+    reshape2::melt() %>%
+    filter(region == "WATL") %>%
+    mutate(p = value/sum(value), .by = c(year, season, region)) %>%
+    filter(stock == "WBFT", p > 0, !is.na(p)) %>%
+    filter(season == 3) %>%
+    mutate(fleet = "Population (season 3)")
+
+  g <- rbind(
+    SC_fleet,
+    SC_pop %>% select(year, fleet, region, stock, value, p)
+  ) %>%
+    ggplot(aes(year, p)) +
+    geom_line() +
+    facet_wrap(vars(fleet)) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Year", y = "Proportion WBFT", linetype = NULL, title = "WATL") +
+    theme(legend.position = "bottom")
+
+  g
+}
+
 
 
 ## Total biomass by season ----
