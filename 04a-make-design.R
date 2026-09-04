@@ -62,7 +62,7 @@ Design <- data.frame(
   rec_devvector = FALSE,
   initC_scalar = 0.5,
   lambda_CAL = 1,
-  lambda_SC = c(0, 0, 1),
+  lambda_SC = c(0, 0, 1, 1),
   lambda_tag = 0,
   SC_set = 3,
   SC_subset = "all",
@@ -71,37 +71,38 @@ Design <- data.frame(
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
-  est_stocksel = FALSE,
+  est_stocksel = c(FALSE, FALSE, FALSE, TRUE),
   Wareas = 2,
-  Eareas = c(2, 3, 3),
-  output_name = paste0("seasonal_selprior", 2:4, "_08.19a"),
-  model_name = c("2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO")
+  Eareas = c(2, 3, 3, 3),
+  output_name = paste0("seasonal_selprior", 2:5, "_08.19a"),
+  model_name = c("2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO", "5. NM, (4) + stocksel")
 )
 readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_CKMR02.csv")
 
-#Design <- data.frame(
-#  input_dir = "model_input/06.30.2026_VAST",
-#  annual = FALSE,
-#  movement = FALSE,
-#  rec_devvector = FALSE,
-#  initC_scalar = 0.5,
-#  lambda_CAL = 1,
-#  lambda_SC = c(0, 0, 0, 1),
-#  lambda_tag = 0,
-#  SC_set = 3,
-#  SC_subset = "all",
-#  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
-#  SSB_sd = 0.18,
-#  spat_prior = FALSE,
-#  sel_prior = TRUE,
-#  fix_sel = FALSE,
-#  est_stocksel = FALSE,
-#  Wareas = 2,
-#  Eareas = c(2, 2, 3, 3),
-#  output_name = paste0("seasonal_selprior", 1:4, "_08.19c"),
-#  model_name = c("1. NM, No CKMR", "2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO")
-#)
-#readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST.csv")
+
+Design <- data.frame(
+  input_dir = "model_input/06.30.2026",
+  annual = FALSE,
+  movement = TRUE,
+  rec_devvector = FALSE,
+  initC_scalar = 0.5,
+  lambda_CAL = 1,
+  lambda_SC = c(1, 1),
+  lambda_tag = c(1, 1),
+  SC_set = 3,
+  SC_subset = "all",
+  SSB_prior = TRUE,
+  SSB_sd = 0.02,
+  spat_prior = c(FALSE, TRUE),
+  sel_prior = TRUE,
+  fix_sel = FALSE,
+  est_stocksel = TRUE,
+  Wareas = 2,
+  Eareas = 3,
+  output_name = paste0("seasonal_selprior", 6:7, "_08.19b"),
+  model_name = c("6. Mov, SOO + Tag", "7. Mov, (6) + spat. prior")
+)
+readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_CKMR02_movement.csv")
 
 Design <- data.frame(
   input_dir = "model_input/06.30.2026_VAST",
@@ -122,7 +123,7 @@ Design <- data.frame(
   est_stocksel = c(FALSE, FALSE, FALSE, FALSE, TRUE),
   Wareas = 2,
   Eareas = c(2, 2, 3, 3, 3),
-  output_name = paste0("seasonal_selprior", 1:5, "_08.19d"),
+  output_name = paste0("seasonal_selprior", 1:5, "_08.19c"),
   model_name = c("1. NM, No CKMR", "2. NM, CKMR", "3. NM, CKMR + WATL mixing", "4. NM, (3) + SOO", "5. NM, (3) + SOO stocksel")
 )
 readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")
@@ -146,7 +147,7 @@ Design <- data.frame(
   est_stocksel = TRUE,
   Wareas = 2,
   Eareas = 3,
-  output_name = paste0("seasonal_selprior", 6:7, "_08.19d"),
+  output_name = paste0("seasonal_selprior", 6:7, "_08.19c"),
   model_name = c("6. Mov, SOO + Tag", "7. Mov, (6) + spat. prior")
 )
 readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")

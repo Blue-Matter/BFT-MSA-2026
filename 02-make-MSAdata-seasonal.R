@@ -391,7 +391,10 @@ cpue_samp <- sapply2(1:ns, function(s) {
 })
 
 index_samp <- array(0, c(length(unique(index_names$i)), nr, ns))
-index_names_matrix <- index_names %>%
+index_names_matrix <- rbind(
+  index_names,
+  index_names %>% filter(grepl("CAN_ACO_SUV", Name)) %>% mutate(Stock = 1)
+) %>%
   mutate(i = i - max(cpue_names[, "i"])) %>%
   select(!Name & !Name2 & !Type) %>%
   as.matrix()
