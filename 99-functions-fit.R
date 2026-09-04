@@ -263,6 +263,7 @@ wrapper_fn <- function(x = 1, Design) {
   }
 
   dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
+  dat@Dsurvey@lambdaI_i[grepl("CAN_ACO_SUV2", dat@Dlabel@index)] <- 0
 
   # Add CKMR estimate of WBFT SSB
   if (!Design$SSB_prior[x]) {
