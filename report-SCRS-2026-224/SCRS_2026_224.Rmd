@@ -1,0 +1,845 @@
+---
+title: "Step-wise development of mixed-stock population models for Atlantic bluefin tuna in 2026, with fleet-specific stock mixing estimates in the West Atlantic"
+author: "Quang C. Huynh[^note1] and Alex Hanke[^note2]"
+output: 
+  officedown::rdocx_document:
+    base_format: "bookdown::word_document2"
+    reference_docx: "SCRS_doc_template.docx"
+    citation_package: biblatex
+    global_numbering: true
+caption:
+  sep: "."
+bibliography: "refs.bib"
+link-citations: false
+csl: csl/american-fisheries-society.csl
+abstract: |
+  This paper describes the step-wise development of mixed-stock models for Atlantic bluefin tuna in 2026. Following lessons learned from the previous iteration of the MSA (multi-stock assessment) model, the sub-group on modeling identified a hierarchy to prioritize the fit to the 2018 CKMR estimate of Western biomass, followed by the indices of abundance. In the initial seasonal, spatial model with no movement, the CKMR estimate required substantial upweighting to match the biomass in the population model. The subsequent model with stock-mixing in the West Atlantic, i.e., Model 4, captured seasonal movement dynamics. Fleet-specific stock-mixing time series were developed from genetic samples and MSA was configured to account for different stock availability among West Atlantic fleets. Biomass trends and magnitude in MSA are of similar order of magnitude with those in M3 and SS3. However, a sensitivity analysis with VAST indices was needed to obtain numerical convergence diagnostics in MSA, and should be monitored in future updates with new data. Nonetheless, Model 4 serves as a base model for further improvement, e.g., improving fits to stock-mixing proportions and expanding stock-mixing to the East Atlantic.
+---
+
+::: {custom-style="Abstract Title"}
+Keywords
+:::
+
+::: {custom-style="Keywords"}
+Stock assessment, Bluefin tuna, Population dynamics, Mathematical models
+:::
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	out.width = 6,
+	warning = TRUE,
+	warnings = TRUE,
+	message = FALSE
+)
+library(flextable)
+library(tidyverse)
+library(officer)
+
+flextable::set_flextable_defaults(
+  font.family = "Cambria",
+  font.size = 10
+)
+
+xlsx_file <- here::here(file.path("data", "1_M3_data", "ICCAT_MSA_Data_2026Apr_v1.xlsx"))
+filter <- dplyr::filter
+
+include_graphics <- function(path, max_width = 6) {
+  img <- magick::image_read(path)
+  info <- magick::image_info(img)
+
+  # convert pixels to inches
+  px_to_in <- function(px, dpi = 300) px / dpi
+  w <- px_to_in(info$width)
+  h <- px_to_in(info$height)
+
+  # scale proportionally to fit fig.width
+  scale <- min(max_width / w, 1)
+  w_scaled <- w * scale
+  h_scaled <- h * scale
+
+  officer::external_img(path, width = w_scaled, height = h_scaled)
+}
+
+tab_num <- officer::run_autonum(
+  seq_id = "tab", pre_label = "Table ", post_label = ". ",
+  prop = fp_text(bold = TRUE, font.size = 10, font.family = "Cambria")
+)
+
+fig_num <- officer::run_autonum(
+  seq_id = "fig", pre_label = "Figure ", post_label = ". ",
+  prop = fp_text(bold = TRUE, font.size = 10, font.family = "Cambria")
+)
+
+fig_caption <- function(label, bkm = NULL) {
+  officer::block_caption(label, style = "Image Caption", autonum = officer::set_autonum_bookmark(fig_num, bkm))
+}
+
+tab_caption <- function(x, caption = NULL, ..., bkm = NULL) {
+  flextable::set_caption(x, caption, autonum = officer::set_autonum_bookmark(tab_num, bkm = bkm), ...)
+}
+```
+
+[^note1]: Blue Matter Science, quang@bluematterscience.com
+[^note2]: Fisheries & Oceans Canada, St. Andrews Biological Station
+
+\newpage
+
+# Introduction
+
+In July 2026, a preliminary mixed-stock population model was presented to the Bluefin Tuna Species Group using the MSA (multi stock assessment) model as part of the status check [@huynh2026].
+The primary intent was to develop a model of similar complexity as the M3 model used to condition operating models in the 2022 MSE [@carruthers2016].
+MSA was configured to be a seasonal, spatial model fitted to catch, indices of abundance/CPUE, length composition, stock mixing proportions, and tag transitions.
+The primary difference was a reduction from a 7-area to a 4-area model, as there were few, if any, estimates of stock mixing in several spatial strata.
+
+However, the exercise did not produce acceptable model results due to numerical stability problems.
+The lack of satisfactory convergence diagnostics were likely associated with conflicting interpretations of the various data.
+For example, the stock mixing time series used in the model implied a large Western stock with substantial movement to the East Atlantic while the tag data indicated that few Western fish migrate there.
+The complexity of fitting the various data types hindered diagnosis of the model problems and identification of the appropriate solutions.
+
+Subsequently, the sub-group on modeling met to identify steps to develop the mixed-stock population model.
+The consensus was that the modeling fitting process required some understanding with the behaviour of simpler models.
+Simpler biological assumptions are more tractable from an estimation standpoint, and once the structure and behaviour of simple models could be established, further complexity could then be added, balancing important biological dynamics while maintaining numerical stability.
+
+Two additional considerations for multi-stock modeling were discussed:
+
+1. A hierarchy for data fitting was identified. First, the fit to the CKMR estimate of Western stock biomass in 2018 should be prioritized. Given historical challenges in estimating stock size in multi-stock models, information about stock size is likely to improve model performance. The CKMR estimate is an index of absolute Western population scale. With additional information about stock mixing, the model should then resolve the Eastern population scale. Second, the CPUE and indices of abundance that inform population trends over time are the next priority, following the principles in @francis2011. Lastly, due to uncertainty in the interpretation of individual assignment scores for stock of origin towards estimates of population mixing, there was lower priority to fitting stock mixing proportions at this stage of model development.
+2. Revision of stratification schemes for stock mixing proportions were recommended, i.e., how to derive estimates of the proportion of bluefin tuna within an area that is Western origin. Since stock of origin is sampled from individual fleets in the West Atlantic, mixing proportions should be estimated by year and fleet in accordance with sampling programs. Fishing fleets are also size-selective and highly seasonal in nature. Therefore, the fleet stratum implicitly incorporates other strata (age class and season). Information about size and seasonal dynamics can be informed by other data fitted in the population model, i.e., length composition and tagging data, respectively.
+
+This working paper documents the step-wise progression of the mixed-stock model for Atlantic bluefin tuna (BFT) *Thunnus thynnus*. 
+The benefit of starting from a simple model, and adjusting one structural element at a time, is that important bottlenecks that impede model stability can be identified and rectified before proceeding.
+Step-wise progression also informs the marginal impact of additional structural elements to the population model.
+At a certain point, a parsimonious model can be identified when further biological complexity provides no further insight about bluefin population dynamics.
+
+# Methods
+
+This section describes the step-wise model development process, with the major structural changes organized by subsection.
+Within subsections, the overall trends in biomass during the spawning season (season 2), are reported.
+Further details of the most complex model (Model 4) are presented in the Results section.
+
+MSA models were fitted in the multiSA R package version 0.5.0.
+Model equations are provided in Appendix A.
+
+## Model (1) NM: no CKMR
+
+The initial model maintained the four-season and four-area (GOM, WATL, EATL, MED) structure from the previous analysis in @huynh2026.
+The data fitted in the model included all historical catch, length composition, indices of abundance, and CPUE provided by the ICCAT Secretariat. 
+Biologically, the early maturity and high natural mortality scenario was used. 
+However, there was no movement and no stock mixing.
+
+This model was effectively configured as a "areas-as-stocks" model, where the Eastern stock is distributed between EATL and MED, the Western stock is distributed between GOM and WATL. 
+Mechanistically, stock distribution occurs by settling the recruitment among the various areas, with no movement occurring after settlement.
+
+The stock mixing and tag data and CKMR estimate were not used.
+Population scale is informed by relative abundance indices scaled up to explain the historical catches. 
+
+## Model (2) NM: CKMR
+
+Here, we simply added to Model (1) the CKMR estimate of Western stock biomass: 22,000 t in 2018 (season 2) with a lognormal standard deviation of 0.18. 
+The estimate was treated as an index of absolute abundance with catchability = 1 for ages 8+.
+
+When the full standard deviation was used, the CKMR estimate appeared to have minimal impact on Western biomass (**Figure \@ref(fig:SSB-CKMR)**).
+Relatively little weight was given to the CKMR estimate because it is effectively one data point in a model with 24 other indices.
+
+To upweight the fit to the CKMR estimate, the standard deviation was reduced to 0.02 in Model 2b.
+At the start of the time series (1950s), the Western stock biomass at the start of the time series is similar with that in Model 2. 
+However, the biomass in 2018 is now closer to the CKMR estimate when the standard deviation is reduced (**Figure \@ref(fig:SSB-CKMR)**).
+
+```{r SSB-CKMR}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal/compare_SSB2.png"))
+```
+
+```{r}
+fig_caption("Stacked barplot of spawning stock biomass by area (colours) in MSA without and with the CKMR estimate. All models (columns) are seasonal with 4 areas, no movement, and no stock mixing. Y-axis scale differs by an order of magnitude between stocks (rows). The point and whisker indicates the CKMR estimate of Western biomass in 2018, with lognormal standard deviation of 0.18. However, the treatment of the CKMR estimate varies by model.", "SSB-CKMR")
+```
+ 
+## Model (3): NM: CKMR + mixing
+
+In Model (3), we used the CKMR estimate (SD = 0.02) and allowed for stock mixing in the West Atlantic (WATL) in a model with no movement. 
+Once this model with stock mixing in the WATL is well-understood, then mixing can be expanded to the EATL as needed. 
+The recruitment of the Eastern stock can settle among three areas: WATL, EATL, and MED, while the settlement of the Western stock is unchanged between GOM and WATL.
+
+To inform the model, time series of stock mixing proportions by fleet were derived from genetic stock of origin (SOO) samples in the Canadian, US, and Japanese fleets (Appendix B).
+These proportions are treated as observations of stock composition in the fishery catch.
+Stock composition varies in the West Atlantic fleets, for example, the Canadian fleet is more Western-origin than the Japanese fleet.
+
+In the model, there is one underlying stock composition in the population situated the West Atlantic. The stock composition in fleet catch can vary for several reasons, including age-specific movement, size selectivity, and local availability inside the stratum. 
+In all models, size selectivity is estimated, while there is no movement in Models 1--3. 
+
+Additionally, a stock-specific catchability parameter is estimated (Appendix A). 
+This nuisance term is designed to describe local availability. 
+This parameter adjusts the stock composition by allowing a fleet to fish harder for one stock relative to another, i.e., the fleet encounters one stock more frequently relative to the stratum-wide composition. 
+
+Comparisons of biomass among Models 1--3 are shown in **Figure \@ref(fig:SSB-mix-move)**.
+While recent Western biomass is of similar magnitude as previous models, the initial biomass is lower, indicating that a smaller unfished population was estimated. 
+The fraction of the Eastern stock that is distributed in the West Atlantic is small.
+
+```{r SSB-mix-move}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement/compare_SSB2.png"))
+```
+
+```{r}
+fig_caption("Stacked barplot of spawning stock biomass by area (colours) in MSA that differ in use of the CKMR estimate, stock mixing in the Western Atlantic, and movement (NM = no movement). All models (columns) are seasonal with 4 areas.", "SSB-mix-move")
+```
+
+## Model (4): Mov: CKMR + mixing
+
+Model (4) builds upon Model (3) with the addition of seasonal movement for both stocks. 
+Movement is informed by satellite tag data that were aggregated into seasonal transitions from daily locations, based on the time spent by each tag during each quarter. 
+Fractions of tag transitions from an origin area to various destination areas directly inform the movement matrix by a multinomial likelihood, with separate likelihoods for each stock. 
+Note that in MSA, seasonal movement occurs at the end of the seasonal time step.
+
+The tag data are aggregated to three age classes: (1) age 0-4, (2) age 5-8, and (3) ages 9+. 
+However, movement is currently constant with age.
+There are insufficient tag transitions for the youngest age classes to describe their movement in the Atlantic, because stock of origin have not been identified for the small fish tagged there. Stock of origin is identified by whether a tag enters the MED (Eastern-origin) or GOM (Western-origin).
+
+Model 4 estimates biomass that is in between Models 2a and 3 for both stocks. Notably, most of the Western stock biomass is in the GOM during the spawning season, in contrast to previous models. However, convergence criteria (low gradient and positive-definite Hessian matrix) were not met in Model 4. Jitter diagnostics over 10 additional model runs did not find a suitable global optimum in the objective function.
+
+## Sensitivity analysis with VAST indices
+
+The previous models fitted to base CPUE and fishery independent abundance indices provided by CPCs. 
+Recently, these indices have been updated with spatiotemporal models such as sdmTMB and VAST. 
+Future updates for some of these indices will solely use spatiotemporal models (A. Hanke, pers. comm.).
+Therefore, a sensitivity analysis at this stage will inform the impact of future changes in index standardization on the modeling.
+
+The models described above (1, 2a, 3, and 4) were re-fitted with VAST indices, with the following replacements:
+
+- **VAST_JPN_LL_West2** replaces **JPN_LL_West2**
+- **VAST_US_RR_177** replaces **US_RR_177**
+- **VAST_CAN_SWNS_RR** replaces **CAN SWNS**
+- **sdmTMB_POR-MOR_TRAP** replaces **MOR_POR_TRAP**
+- **VAST CAN ACO SUV** replaces **CAN_ACO_SUV1**
+
+Compared to the base indices, the models fitted to VAST indices displayed similar behaviour in the step-wise progression of models (**Figure \@ref(fig:SSB-mix-move-VAST)**).
+The CKMR estimate reduces Western-origin biomass (Model 2a vs. 1), but also has a non-zero impact on estimating Eastern-origin biomass. 
+This likely occurs because longline fleets, i.e., LL_OTH, LLJPN, OTH, and LLJPNnew, defined in the model that operate in both the West and East Atlantic. 
+Therefore, differences in selectivity estimates in a fleet have some modest impact on biomass across stocks. 
+
+The addition of stock mixing and movement reduces biomass of both stocks (Model 4 vs. 2a), though the Eastern stock remains almost an order of magnitude larger than the Western stock.
+
+The models with VAST indices also had satisfactory convergence diagnostics (Table \@ref(tab:like-VAST)).
+Jittering indicated that the global optimum was consistently reached by the optimization algorithm from different starting parameters in Model 4 with VAST indices.
+
+\newpage
+
+```{r SSB-mix-move-VAST}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_SSB2.png"))
+```
+
+```{r}
+fig_caption("Stacked barplot of spawning stock biomass by area (colours) in MSA that differ in use of the CKMR estimate, stock mixing in the Western Atlantic, and movement (NM = no movement). Here, models were fitted with VAST indices where available. All models (columns) are seasonal with 4 areas.", "SSB-mix-move-VAST")
+```
+
+```{r like-VAST}
+names_df <- data.frame(
+  variable = c("loglike", "loglike_CAL_ymfr", "loglike_I_ymi", "loglike_SC_ymafr",
+               "loglike_tag_mov_ymars", "logprior", "logprior_par",
+               "logprior_rdev_ys", "objective", "maxgrad", "conv"),
+  Component = c("All likelihoods", "Like: Length composition", "Like: Indices", "Like: SOO",
+                "Like: Tags", "All priors", "Pr: sel + move. prior",
+                "Pr: Rec devs", "Objective", "Gradient", "Convergence")
+)
+
+like <- readr::read_csv(here::here("tables/like_08.19_seasonal_movement_VAST.csv"), show_col_types = FALSE)
+colnames(like)[1] <- "Model"
+like_df <- like %>%
+  reshape2::melt(id.vars = "Model") %>%
+  mutate(value = abs(value)) %>%
+  left_join(names_df, by = "variable") %>%
+  filter(!is.na(Component)) %>%
+  mutate(Component = factor(Component, names_df$Component)) %>%
+  reshape2::dcast(list("Component", "Model"), value.var = "value")
+
+flextable(like_df) %>%
+  width(j = 1, width = 2) %>%
+  width(j = 2:5, width = 1) %>%
+  colformat_double(i = 10, j = 2:5, digits = 4) %>%
+  colformat_double(i = c(1:9, 11), j = 2:5, digits = 0) %>%
+  tab_caption("Values of the objective function, with the component negative log likelihoods and negative log priors, for each model (column), along with maximum gradients and convergence (1=converged, 0=not converged). All models used VAST indices where available.", "like-VAST")
+```
+
+\newpage
+
+## Comparison with M3 and SS3 models
+
+To determine consistency with previous population models, spawning biomass from MSA (using VAST indices) were compared to those from 2026 SS3 assessments [@fernandez2026; @tsukahara2026], noting that SS3 models use annual time steps with no mixing, and M3 [@carruthers2025], the previous model for the MSE.
+
+All models are consistent in broad population scale (the Western stock is approximately one order of magnitude smaller than the East, **Figure \@ref(fig:SSB-M3-SS3)**). Recent biomass trends in MSA models almost identical because they are informed by multiple abundance indices (**Figures \@ref(fig:fit-CPUE)** and **\@ref(fig:fit-index)**), but early biomass is more dependent on structural assumptions of the respective models as there are few abundance indices during this time period.
+
+```{r SSB-M3-SS3}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_SSB_M3_SS3.png"))
+```
+
+```{r}
+fig_caption("Comparison of estimated spawning biomass between M3, MSA, and SS3 (R39 for Eastern stock and Early, base model for Western stock). M3 models differed in assumption of stock size for either small (-) or large (+) with use of priors for scaling. MSA models differed in the use of CKMR estimate, stock mixing in the Western Atlantic, and movement matrics. Neither MSA nor SS3 use priors on population scale.", "SSB-M3-SS3")
+```
+
+```{r fit-CPUE}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_CPUE_fit.png"))
+```
+
+```{r}
+fig_caption("Fits to fishery CPUE (data in black points and errorbars) by model (colours).", "fit-CPUE")
+```
+
+```{r fit-index}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_index_fit.png"))
+```
+
+```{r}
+fig_caption("Fits to fishery-independent indices of abundance (data in black points and errorbars) by model (colours).", "fit-index")
+```
+
+# Results for Model 4
+
+Here, we report the fits and state variables from Model 4 that used VAST indices.
+**Figure \@ref(fig:SSB-season)** shows the seasonal patterns in movement for mature biomass. 
+The Eastern stock is consistently distributed between the EATL and MED in each season, because the tag data indicate that fish in the EATL tend to remain in the EATL and fish in the MED tend to stay in the MED (**Figures \@ref(fig:tag-EBFT1)--\@ref(fig:mov-EBFT)**).
+In such a scenario, the proportion of the Eastern stock that migrate in and out of the WATL is low.
+The resolution of the seasonal model (3 months per quarter) may be too coarse to capture the migration of spawning fish into and out of the MED (over the course of 1 month). 
+
+In contrast, the Western stock is mostly in the GOM during the spawning season (season 2), followed by migration to the WATL in season 3 and 4 (**Figure \@ref(fig:SSB-season)**).
+This behaviour is supported by the tag data and estimated in the movement matrix (**Figures \@ref(fig:tag-WBFT)--\@ref(fig:mov-WBFT)**).
+
+```{r SSB-season}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/SB_area_season.png"))
+```
+
+```{r}
+fig_caption("Seasonal (columns) distribution of mature biomass by area (rows) and stock (colours) in Model 4.", "SSB-season")
+```
+
+```{r tag-EBFT1}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_tag_EBFT_a3.png"))
+```
+
+```{r}
+fig_caption("Observed (black lines and points) and predicted (colour lines for Model 4) tag transitions by originating area (rows) and season (columns) for EBFT, age class 3 (ages 9+).", "tag-EBFT1")
+```
+
+```{r mov-EBFT}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/mov_EBFT.png"))
+```
+
+```{r}
+fig_caption("Estimated movement matrix for EBFT in Model 4. Movement occurs at the end of the time step. The equilibrium seasonal population distribution is shown in the far right column of each seasonal matrix.", "mov-EBFT")
+```
+
+```{r tag-WBFT}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_tag_WBFT_a3.png"))
+```
+
+```{r}
+fig_caption("Observed (black lines and points) and predicted (colour lines for Model 4) tag transitions by originating area (rows) and season (columns) for WBFT, age class 3 (ages 9+).", "tag-WBFT")
+```
+
+```{r mov-WBFT}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/mov_WBFT.png"))
+```
+
+```{r}
+fig_caption("Estimated movement matrix for WBFT in Model 4. Movement occurs at the end of the time step. The equilibrium seasonal population distribution is shown in the far right column of each seasonal matrix.", "mov-WBFT")
+```
+
+\newpage
+
+The West Atlantic is the mixing zone of the 2 stocks. 
+The biomass there is predominantly Western-origin (**Figure \@ref(fig:SSB-season)**).
+To account for different levels stock mixing in four fleets in the West Atlantic, Model 4 modified the availability of the two stocks in these fleets. 
+Differences in availability can be visualized in the spatial fishing mortality (**Figure \@ref(fig:F-WATL)**), where higher F implies higher availability for one stock than the other in that fleet and equal F implies equal availability. 
+There is higher availability of the Eastern stock for fleets RRCAN, RRUSAFB (large fish), and LLJPNnew in the West Atlantic, while there is higher avilability for the Western stock in the RRUSAFS fleet (small fish) has higher availability of the Western stock. **Figure \@ref(fig:SC-WATL)** shows the estimated stock composition in the fleet catch and population.
+
+Fits to the stock mixing time series are moderate in quality (for RRUSAFS) to poor for the other three fleets (**Figure \@ref(fig:fit-SOO)**).
+However, the relative order of stock mixing in the observations appears to be preserved in the fits.
+For example, the Japanese longline catch is the least Western-origin in the WATL, followed by the US and Canadian fleets.
+
+```{r F-WATL}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/F_stock_WATL.png"))
+```
+
+```{r}
+fig_caption("Instantaneous fishing mortality (F, per year) in the West Atlantic (WATL) by fleet (panel) and stock (linetype). F varies by stock by estimating a relative stock catchability parameter informed by a time series of stock mixing time series.", "F-WATL")
+```
+
+```{r SC-WATL}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/SC_fleet_WATL.png"))
+```
+
+```{r}
+fig_caption("Annual stock composition of catch from fishing fleets in the West Atlantic fleets compared to the population.", "SC-WATL")
+```
+
+```{r fit-SOO}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_SOO3_fit.png"))
+```
+
+```{r}
+fig_caption("Fits to stock mixing proportions by model and fleet in the West Atlantic (observed values in black, model predictions in colours). The methodology for deriving mixing proportions are described in Appendix B. Columns for Models 1 and 2a are trivial because they do not have stock mixing (100% Western origin in the West Atlantic); these columns were solely used for model validation.", "fit-SOO")
+```
+
+# Discussion
+
+The modeling process described here presents mixed-stock models of simple to intermediate complexity and identifies the marginal impact of various structural elements. 
+For example, the CKMR estimate reduces Western scale, but needed significant up-weighting (reducing the standard deviation from 0.18 to 0.02) to impact the model. The model interprets the estimate as an index of abundance with one data point relative to numerous data points in the other indices and CPUE.
+
+The addition of stock mixing and movement slightly reduces population scale further, and re-distributes Western-origin biomass based on the tagging movement. 
+Overall, the trend and magnitude of population scale are within the range estimated with M3 and SS3.
+
+The step-wise approach allowed for careful model construction, yet satisfactory convergence diagnostics were not always obtained, even when the gradient in the objective function was close to zero.
+The causes remain unclear, but this behaviour should be continually monitored in future updates with new data.
+
+Model 4 can be considered the base model from this modeling exercise. 
+Future improvements include:
+
+1. Mirroring availability parameters from the fleets with stock mixing to others operating in the West Atlantic
+2. Revision of stock mixing estimates of fleets in the West Atlantic, in consultation with the sub-group on stock mixing
+3. Expansion of stock mixing to the East Atlantic with updated stock mixing estimates
+4. Revision of the LLOTH fleet because larger fish are caught in the WATL compared to the EATL and MED (**Figure \@ref(fig:fit-mlen)**)
+ 
+The BFT Species Group previously discussed the suitability of annual mixed stock models.
+Such models would be structurally simpler and this paper has demonstrated that mixed-stock fleets can be tuned through the stock availability parameter. 
+However, annual models likely need to be spatially simpler (e.g., 2 areas), because it is difficult to interpret spatial biomass without seasonality.
+For example, Western-origin bluefin are in the GOM in the spring/summer and in the Atlantic in the autumn. 
+An annual, spatial model does not easily reconcile the distribution of fish in the spawning (season 2) and fishing (season 3, 4) seasons.
+
+Spatial models also provide the opportunity to fit stock-specific indices of abundance in natal areas (MED and GOM) where there is no stock mixing. 
+Given these features of bluefin biology, a seasonal, spatial model maximizes the use of the indices of abundance and tagging data.
+
+```{r fit-mlen}
+include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/compare_mlen_fit.png"))
+```
+
+```{r}
+fig_caption("Observed (black points) and predicted (colour lines) mean lengths from the length composition in the four models by fleet and area. The seaonal length compositions are fitted with a multinomial likelihood using the natural logarithm of the sample sizes, but time series of mean lengths could more succinctly summarize goodness of fit.", "fit-mlen")
+```
+
+\newpage
+
+# Acknowledgements
+
+Support for the development of multiSA was provided by the NOAA Fisheries Bluefin Tuna Research Program (BTRP Grants NA23NMF4720184 and NA24NMFX472C0008-T1-01) in collaboration with the Ocean Foundation.
+
+This work was carried out under the provision of the ICCAT Atlantic-Wide Research Programme for Bluefin Tuna (GBYP). The contents of this document do not necessarily reflect the point of view of ICCAT, which has no responsibility over them, and in no ways anticipate the Commission’s future policy in this area.
+This work was conducted with the funding support of the ICCAT GBYP budget and was partially funded by the European Union through the EU Grant Agreement No. 101320145.
+
+\newpage
+
+# Appendix A - MSA model equations
+
+## Model variables
+
+```{r model-var}
+vars <- data.frame(
+  Name = c("Year", "Season", "Age", "Age Class", "Fleet", "Area", "Area (destination)", "Stock", "Length bin", "Index of abundance"),
+  Variable = c("y", "m", "a", "a'", "f", "r", "r'", "s", "\u2113", "i"),
+  Values = c("1950, 1951, ..., 2025", "1, 2, 3, 4", "0, 1, ..., 35", "1, 2, 3", "1, 2, ..., 18", "1, 2, 3, 4", "1, 2, 3, 4", "1, 2", "25, 50, ..., 300", "1, 2, ..., 24"),
+  Description = c("", "", "", "ages {0-4, 5-8, 9+}", "", "{GOM, WATL, EATL, MED}", "{GOM, WATL, EATL, MED}", "{EBFT, WBFT}", "", "")
+)
+
+flextable(vars) %>%
+  tab_caption("Summary of indexing variables, range of values, and corresponding description.", bkm = "model-var") %>%
+  width(j = 3:4, width = 2)
+```
+
+## Abundance at age
+
+Let $N$ be the population abundance. In the spawning season (quarter 2), the stock abundance at age $N$ advances integer age class $a$ from the previous season. For ages $a = 1,\ldots,A$ ($A$ is the plusgroup), the abundance is calculated from survival and movement as:
+
+$$
+N_{y,m,a,r',s} = 
+\begin{cases}
+R_{y,s}\times\omega_{r,s} &a=0\\
+\sum_rN_{y,m-1,a-1,r,s}\exp(-Z_{y,m-1,a-1,r,s})\psi_{m-1,r,r',s} &a=1,\dots,A-1\\
+\sum_rN_{y,m-1,a-1,r,s}\exp(-Z_{y,m-1,a-1,r,s})\psi_{m-1,r,r',s} +&\\
+\quad\sum_rN_{y,m-1,A,r,s}\exp(-Z_{y,m-1,A,r,s})\psi_{m-1,r,r',s} &a=A
+\end{cases}
+$$
+
+where $R$ is global recruitment, $\omega$ is the fraction of recruitment that settles in area $r$ ($\sum_r \omega_{r,s}=1$), $\psi$ is the proportion of the stock that moves from area of origin $r$ to destination $r'$ ($\sum_{r'} \psi_{r,r',s} = 1$, movement occurs at the end of the season), $Z$ is total mortality. 
+
+The spawning biomass $S$ in season 2 is:
+
+$$
+S_{y,s} = \sum_{a=1}^Am_{y,a,s} \times w_{m=2,a,s} \times N_{y,m=2,a,r,s}
+$$
+
+where $m$ is maturity at age and $w$ is stock weight at age.
+
+The recruitment $R$ is calculated from the Beverton-Holt stock-recruit relationship:
+
+\begin{align}
+R_{y,s} &= \dfrac{\alpha_sS_{y,s}}{1 + \beta_sS_{y,s}}\exp(\delta_{y,s} - 0.5 (\sigma^R_s)^2)\\
+\alpha_s &= \dfrac{4h_s}{\phi_s(1-h_s)}\\
+\beta_s &= \dfrac{5h_s-1}{(1-h_s)\phi_sR_{0(s)}}
+\end{align}
+
+where $\delta$ is an annual deviate, $-0.5 (\sigma^R_s)^2$ is the lognormal bias adjustment term, $h$ is steepness, and $R_0$ is average unfished recruitment.
+
+Outside the spawning season, the abundance is calculated from survival and movement from the previous season:
+
+$$
+N_{y,m,a,r',s} = 
+\begin{cases}
+\sum_rN_{y,m,a,r,s}\exp(-Z_{y-1,m=4,a,r,s})\psi_{m=4,r,r',s} &m = 1\\
+\sum_rN_{y,m-1,a,r,s}\exp(-Z_{y,m-1,a,r,s})\psi_{m-1,r,r',s} &m = 3, 4
+\end{cases}
+$$
+
+## Catch equation
+
+The catch at age $C$ for stock $s$ is:
+
+$$
+C_{y,m,a,f,r,s} = \dfrac{v_{a,f,s}q_{f,s}F_{y,m,f,r}}{Z_{y,m,a,r,s}}(1 - \exp(-Z_{y,m,a,r,s}))N_{y,m,a,r,s}
+$$
+
+where $Z_{y,m,a,r,s} = \sum_fv_{a,f,s}q_{f,s}F_{y,m,f,r} + M_{a,s}/n_m$ is total mortality (per season) from fishing mortality $F$ (per season) and natural mortality $M$ (per year), $v$ is fishery selectivity, $q_{f,s}$ is a fleet specific catchability for stock $s$. 
+
+The total catch $Y$ in weight, aggregated across age and stock, is:
+
+$$
+Y_{y,m,f,r} = \sum_a\sum_s C_{y,m,a,f,r,s}w_{m,a,s}
+$$
+
+where $w$ is weight at age. 
+The model solves for $F$ such that the modeled catch $Y$ is equal to observed values.
+
+## Stock composition 
+
+The stock composition $p^\textrm{SOO}$ is treated as an observation from the fishery catch aggregated across all ages:
+
+$$
+p^\textrm{SOO}_{y,m,f,r,s} = \frac{\sum_aC_{y,m,a,f,r,s}}{\sum_a\sum_sC_{y,m,a,f,r,s}}
+$$
+
+where $\sum_s p_{y,m,f,r,s} = 1$. 
+
+## Length composition
+
+The length composition is converted from the age composition as:
+
+$$
+C_{y,m,\ell,f,r,s} = \sum_aC_{y,m,a,f,r,s} \times \tilde{p}(\ell|a,s)
+$$
+
+where $\tilde{p}(\ell|a,s)$ is a length-at-age probability matrix that is adjusted for size-based selectivity (and ensuring that summation across age is 1):
+
+$$
+\tilde{p}(\ell|a,s) = \frac{p(\ell|a,s)\times v_{\ell,f}}{\sum_ap(\ell|a,s)\times v_{\ell,f}}
+$$
+
+## Index of abundance
+
+The index of abundance is calculated as
+
+$$
+I_{y,m,r,i} = q_i V_{y,m,r,i}
+$$
+
+where $V_{y,m,r,i} = \sum_a\sum_sN_{y,m,a,r,s}\times v_{a,i} \times w_{m,a,s}$ and $v$ is the vulnerability schedule (mirrored from fishing fleets or fixed).
+
+## Estimated parameters and transformations
+
+Let $x$ be an estimated parameter where superscripts denote the corresponding model parameter. Parameters are typically estimated in transformed space, e.g., log space or logit space.
+
+### Recruitment 
+
+Unfished recruitment is estimated in logspace, i.e., $R_{0(s)} = \exp(x^{R_0}_s)$.
+
+Recruitment distribution is estimated in softmax space:
+
+$$
+\omega_{r,s} = \frac{\exp(x^\omega_{r,s})}{\sum_r\exp(x^\omega_{r,s})}
+$$
+
+### Selectivity
+
+Size selectivity is double-Gaussian by length bin $\ell$, where
+
+$$
+v_{\ell,f} = 
+\begin{cases}
+\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{asc}_f}\right]^2\right) &, \ell \le \mu_f\\
+\exp\left(-0.5\left[\frac{\ell - \mu_f}{\sigma^\textrm{dsc}_f}\right]^2\right) &, \ell \gt \mu_f\\
+\end{cases}
+$$
+
+where $\mu$ is the length of full selectivity and $\sigma$ parameters control the width of the ascending and descending limbs.
+Parameter $\mu$ is estimated in logit space ($\mu_f = L/(1 + \exp(x^\mu_f))$ where $L$ is the largest length bin.
+Parameters $\sigma^\textrm{asc}_f$ and $\sigma^\textrm{dsc}_f$ are estimated in log space: $\sigma^\textrm{asc}_f=\exp(x^\textrm{asc}_f)$ and $\sigma^\textrm{dsc}_f=\exp(x^\textrm{dsc}_f)$.
+
+Size selectivity is converted to age equivalents using the stock-specific length-at-age probability matrix $p(\ell|a,s)$:
+
+$$
+v_{a,f,s} = \sum_\ell v_{\ell,f} \times p(\ell|a,s)
+$$
+
+Stock-specific selectivity is estimated in log space, i.e., $q_{f,s} = \exp(x^q_{f,s})$, for fleets with stock mixing proportions. 
+Since selectivity is relative, $q_{f,s}$ is fixed to one for the Eastern stock and estimated for the Western stock within each fleet.
+
+### Index catchability
+
+Index catchability $q_i$ is calculated internally in the model from the average log deviation between the observed index $I^\textrm{obs}$ and corresponding vulnerable biomass $V$:
+
+\begin{align}
+q_i &= \exp(\bar{\varepsilon})\\
+\varepsilon_{y,m,r,i} &= \log\left(\frac{I^\textrm{obs}_{y,m,r,i}}{V_{y,m,r,i}}\right)
+\end{align}
+
+### Movement 
+
+Movement matrix $\psi$ is estimated from a softmax transformation:
+
+\begin{align}
+\psi_{m,r,r',s} &= \dfrac{\exp(x_{m,r,r',s})}{\sum_{r'}\exp(x_{m,r,r',s})}\\
+x_{m,r,r',s} &= 
+\begin{cases}
+g_{m,r',s}+\eta_{m,s}&r=r'\\
+g_{m,r',s}&\textrm{otherwise}
+\end{cases}
+\end{align}
+
+The movement matrix is parameterized with a gravity model, where movement is a balance between attraction terms $g$ to destination $r'$ and tendency to remain in the origin area $\eta$ [@carruthers2015; @carruthers2011].
+This parameterization reduces the degrees of freedom to estimate a full movement matrix. 
+For example, a full 3-area ($n_r=3$) Markov matrix requires $n_r \times (n_r - 1) = 6$ parameters while the gravity model requires $n_r = 3$ parameters (the attraction term for one area is fixed).
+
+## Likelihoods
+
+The log-likelihood $\Lambda$ of the indices of abundance is lognormal:
+
+$$
+\Lambda^I_{y,m,i} = -\log(\sigma^I_{y,m,i}) - \exp\left(-\left[\dfrac{\log(I^\textrm{obs}_{y,m,i}) - \log(\hat{I}_{y,m,i})}{\sigma^I_{y,m,i}}\right]^2\right)
+$$
+
+The log-likelihood of the length composition (CAL) is multinomial:
+
+$$
+\Lambda^\textrm{CAL}_{y,m,f,r} = \sum_{\ell}O^\textrm{CAL}_{y,m,f,r}\times p^\textrm{obs,CAL}_{y,m,\ell,f,r}\times\log(\hat{p}^\textrm{CAL}_{y,m,\ell,f,r})
+$$
+
+where $\hat{p}^\textrm{CAL}_{y,m,\ell,f,r} = \sum_s\hat{C}_{y,m,\ell,f,r,s}/\sum_\ell\sum_s\hat{C}_{y,m,\ell,f,r,s}$ and $O$ is the sample size.
+ 
+The log-likelihood of the stock mixing proportions is logistic-normal:
+
+$$
+\Lambda^\textrm{SOO}_{y,m,f,r} = -\log(\sigma^\textrm{SOO}_{y,m,f,r,s=2}) - \exp\left(-\left[\dfrac{\textrm{logit}(p^\textrm{SOO,obs}_{y,m,f,r,s=2}) - \textrm{logit}(\hat{p}^\textrm{SOO}_{y,m,f,r,s=2})}{\sigma^\textrm{SOO}_{y,m,f,r}}\right]^2\right)
+$$
+
+The log-likelihood of satellite tag transitions $T$ is multinomial:
+
+$$
+\Lambda^T_{m,a',r,s} = \sum_{r'}O^T_{m,a',r,s}\times p^\textrm{obs,T}_{m,a',r,r',s}\times\log(\hat{\psi}_{m,r,r',s})
+$$
+
+where $a'$ is age class and $O$ is the sample size of tag transitions.
+
+## Priors
+
+Recruitment deviations are estimated in log space with $\sigma_R=0.5$:
+
+$$
+\delta_{y,s} \sim N(0, \sigma= 0.5)
+$$
+
+For numerical stability, broad priors are placed on selectivity and movement parameters so that they do not reach extreme values where there is low curvature in the objective function.
+
+The size of full selectivity has a Gaussian prior in logit space:
+
+$$
+x^\mu_f \sim N(0, \sigma= 1.5)
+$$
+
+When transformed to normal space, this prior approximates a probability density function with less support as the parameter approaches the bounds (**Figure \@ref(fig:logit-prior)**).
+
+```{r logit-prior, echo=FALSE}
+include_graphics(here::here("figures/logit-prior.png"))
+```
+
+```{r}
+fig_caption(
+  "Prior density function of a Gaussian distribution in logit space (left) and transformation to normal space (right).",
+  "logit-prior"
+)
+```
+
+The ascending and descending selectivity limbs has a Gaussian prior in log space:
+
+\begin{align}
+x^\textrm{asc}_f &\sim N(\log(l_f), \sigma= 0.5)\\
+x^\textrm{dsc}_f &\sim N(\log(l_f), \sigma= 0.5)
+\end{align}
+
+where $l_f$ is the half the difference between the modal length bin and first size bin in the aggregate observed length composition.
+
+Movement parameters have a broad Gaussian prior in logit space:
+
+\begin{align}
+g_{m,r',s} &\sim N(0, \sigma= 1.5)\\
+\eta_{m,s} &\sim N(0, \sigma= 1.5)
+\end{align}
+
+\newpage
+
+# Appendix B - Mixing proportions for 4 fleets
+
+We estimated stock mixing in the West Atlantic using a Bayesian hierarchical latent class framework implemented in JAGS [@plummer2003].
+The model integrates continuous classification outputs ("soft calls") from a Support Vector Machine (SVM) algorithm with spatio-temporal and demographic covariates to estimate individual latent stock assignment while accounting for classification uncertainty.
+
+## Latent Process Model
+
+Let $i=1,\ldots,N$ index individual fish.
+The true, unobserved stock of origin $S_i$ is modeled as a Bernoulli random variable:
+
+$$
+S_i \sim \textrm{Bernoulli}(\psi_i)
+$$
+
+where $S_i=1$ denotes Western origin (Gulf of Mexico spawning stock) and $S_i=0$ denotes Eastern origin (Mediterranean Sea spawning stock).
+The mixing probability $\psi_i$ is modeled via a logit link function as a linear combination of main effects and a fleet-specific age interaction:
+
+$$
+\textrm{logit}(\psi_i)=\beta_0+\beta_\textrm{qtr}[q_i]+\beta_\textrm{fleet}[f_i]+\beta_\textrm{year}[y_i]+\beta_\textrm{age, fleet}[f_i]\cdot z_i
+$$
+
+where:
+
+- $\beta_0$ is the global intercept.
+-	$\beta_\textrm{qtr}, \beta_\textrm{fleet}, \beta_\textrm{year}$ represent categorical fixed effects for Quarter (q), Fleet (f), and Year (y), respectively.
+-	$z_i$ is the standardized age covariate ($z_i=(\textrm{Age}_i - \overline{\textrm{Age}})/\textrm{sd}(\textrm{Age})$).
+-	$\beta_\textrm{age, fleet}$ represents a fleet-specific slope parameter capturing differential age-based selectivity across fleets.
+
+## Observation Model
+
+The continuous predicted probability of Western origin output by the SVM algorithm, $Y_i\in(0,1)$, serves as a noisy observation of the true latent state $S_i$. We model $Y_i$ using a Beta observation distribution parameterized by its mean $\mu_i$ and precision parameter $\phi$:
+
+\begin{align}
+Y_i&\sim\textrm{Beta}(\alpha_i,\beta_i )\\
+\alpha_i&=\mu_i\phi, \beta_i=(1-\mu_i )\phi
+\end{align}
+
+The expected soft call value $\mu_i$ depends conditional on the latent true state $S_i$:
+
+$$
+\mu_i=S_i\cdot\pi_\textrm{GOM} +(1-S_i)\cdot(1-\pi_\textrm{MED})
+$$
+
+where $\pi_\textrm{GOM}$ and $\pi_\textrm{MED}$ represent the true positive classification accuracies for Western (Gulf of Mexico) and Eastern (Mediterranean) stocks, respectively.
+
+## Prior Specifications
+
+We assigned weakly informative priors to all logistic regression parameters and informative Beta priors to the SVM accuracy parameters based on validation performance:
+
+$$
+\beta_0\sim\textrm{Normal}(0,\sigma^2=100)
+$$
+
+\begin{align}
+\beta_\textrm{qtr}[q]&\sim\textrm{Normal}(0,\sigma^2=10) \quad\forall q\in\{1,\ldots,N_\textrm{qtr}\}\\
+\beta_\textrm{fleet}[f]&\sim\textrm{Normal}(0,\sigma^2=10) \quad\forall f\in\{1,\ldots,N_\textrm{fleet}\}\\
+\beta_\textrm{year}[y]&\sim\textrm{Normal}(0,\sigma^2=10) \quad\forall y\in\{1,\ldots,N_\textrm{year}\}\\
+\beta_\textrm{age, fleet}[f]&\sim\textrm{Normal}(0,\sigma^2=10) \quad\forall f\in\{1,\ldots,N_\textrm{fleet}\}
+\end{align}
+
+\begin{align}
+\phi&\sim\textrm{Gamma}(\textrm{shape}=0.1,\textrm{rate}=0.1)\\
+\pi_\textrm{GOM}&\sim\textrm{Beta}(0.97,0.03)\\
+\pi_\textrm{MED}&\sim\textrm{Beta}(0.96,0.04)
+\end{align}
+
+## Model Estimation and Derived Quantities
+
+Parameter estimation was conducted using Markov Chain Monte Carlo (MCMC) sampling via the rjags package in R. 
+We ran three parallel MCMC chains for 25,000 iterations each, discarding the first 8,000 iterations as adaptation/burn-in and thinning the remaining draws by a factor of 10 to yield 5,100 post-burn-in samples. 
+Convergence was evaluated using trace plots and Gelman-Rubin diagnostics ($\hat{R}<1.05$).
+
+The overall proportions of Western-origin fish were tracked as a derived posterior quantity:
+
+$$
+\bar{S}=\dfrac{1}{N}\sum_{i=1}^NS_i 
+$$
+
+## Predictions
+
+### Case 1: Empirical Profile Approach (Modal Age and Dominant Quarter)
+
+To generate fleet- and year-specific mixing rates using a standardized baseline observation, we calculated predictions for empirical profiles constructed from the dominant seasonal and demographic characteristics of each cell. 
+For each unique combination of Year (y) and Fleet (f), we extracted the empirical statistical mode of Quarter ($q^*$) and the modal age, which was standardized relative to the global mean ($\tilde{z}^*$).
+Using these empirical baseline covariates, the posterior probability of Western origin $p_{s,y,f}$ for MCMC draw $k\in\{1,\ldots,K\}$ was calculated as:
+
+$$
+\textrm{logit}(p_{k,y,f})=\beta_0^{(k)}+\beta_\textrm{qtr}^{(k)}[q^*]+\beta_\textrm{fleet}^{(k)}[f]+\beta_\textrm{year}^{(k)}[y]+\beta_\textrm{age, fleet}^{(k)}[f]\cdot \tilde{z}^*
+$$
+
+The resulting posterior sample vector $p_{k,y,f}$ was transformed to the probability scale via the inverse logit function to yield the point estimate (posterior mean) and 95% Bayesian credible intervals for each Year × Fleet profile.
+
+### Case 2: Integrated Marginalization Approach (Year × Fleet)
+
+To account for the full underlying demographic and seasonal structure of catch within each stratum, we estimated P(West) by marginalizing model predictions over the complete empirical distribution of ages and quarters observed within each Year × Fleet cell.
+
+For a given Year (y) and Fleet (f) stratum containing $N_{y,f}$ individual fish observations indexed by $j\in\{1,\ldots,N_{y,f}\}$, we evaluated the predicted probability for every observation across each MCMC draw $k$:
+
+$$
+\textrm{logit}(p_{k,j})=\beta_0^{(k)}+\beta_\textrm{qtr}^{(k)}[q_j]+\beta_\textrm{fleet}^{(k)}[f]+\beta_\textrm{year}^{(k)}[y]+\beta_\textrm{age, fleet}^{(k)}[f]\cdot z_j
+$$
+
+The marginalized posterior prediction for draw $k$ was computed by taking the mean prediction across all $N_{y,f}$ observations in that stratum:
+
+$$
+\bar{p}_{k,y,f}=\dfrac{1}{N_{y,f}}\sum_{j=1}^{N_{y,f}}p_{k,j}
+$$
+
+Summary statistics (posterior mean, standard deviation, coefficient of variation, and 95% credible intervals) were then calculated across the marginalized posterior draws $\bar{p}_{k,y,f}$.
+This approach integrates out intra-annual seasonal shifts and size selectivity variations to provide a representative population-level mixing proportion for each fleet and year.
+
+## Results
+
+Estimates of West Atlantic stock mixing are shown in **Figure \@ref(fig:SOO)**.
+
+When deriving stock mixing proportions from spatial-temporal models, the choice between prediction strategies reflects a fundamental tradeoff between standardization and empirical representation:
+
+- **The Empirical Profile Approach (Modal Age and Dominant Quarter):** By fixing predictions to a single synthetic benchmark (the modal age and dominant quarter per stratum), this method controls for operational variations across fishing efforts. It answers a specific standardized question: *"What is the expected mixing proportion for a typical fish caught during peak seasonal activity?"* While this provides a clean baseline for year-to-year comparisons, it discards intra-stratum variation in size selectivity and seasonal timing. As a result, it can bias population-level inferences if catches outside the dominant mode represent a substantial portion of the fleet's total landings or exhibit strong seasonal stock shifts.
+-	**The Integrated Marginalization Approach (Year × Fleet):** By integrating predictions across every individual observation's actual age and quarter within a given stratum, this approach accounts for the full empirical heterogeneity of the catch. It reflects the realized population mixing rate sampled by a given fleet in a given year, capturing the combined effects of fleet selectivity, seasonal shifts in fish availability, and changing demographic structures. However, because this rate is sensitive to annual shifts in sampling distribution or fishing behavior, changes in marginalized P(West) over time reflect both true biological stock dynamics and operational changes in how and when the fishery was sampled.
+
+For management applications prioritizing consistent index tracking over time, the empirical profile approach offers a standardized metric isolated from fleet sampling noise. 
+Conversely, for applications requiring accurate total biomass or catch-at-age allocations across fleets, the marginalized approach provides a more realistic representation of true stock composition within realized catches provided the samples are a representative sample from fleet catches.
+
+```{r SOO}
+include_graphics(here::here("figures/data/SOO_WATL.png"))
+```
+
+```{r}
+fig_caption(
+  "Estimates of stock mixing (means and 95% prediction interval) in West Atlantic fleets using either the Empirical Profile or Marginalized Approach.",
+  "SOO"
+)
+```
+
+<!--
+
+## Seasonal spatial prior
+
+Apply matrix $M$ to a vector of abundance $\tilde{N}$ for a large number of iterations $i = 1, 2, \ldots, 200$.
+
+$$
+\tilde{N}_{i,m,r',s} = 
+\begin{cases}
+\sum_r M_{m,r,r',s} \times \tilde{N}_{i-1,m=n_m,r,s} &, m = 1\\
+\sum_r M_{m,r,r',s} \times \tilde{N}_{i,m-1,r,s} &, \textrm{otherwise}\\
+\end{cases}
+$$
+
+where $\sum_{r'}\tilde{N}_{i,m,r',s} = 1$ (summed across areas).
+
+The priors are:
+
+$$
+\log(\tilde{N}_{i=200,m,r,s}) \sim N(\log(\mu_{m,r,s}), \sigma=0.025)
+$$
+
+where priors are defined only for $r = 4$ (MED) when $s = 1$ (EBFT) and $r = 1$ (GOM) when $s = 2$ (WBFT).
+
+-->
+
+\newpage
+
+# References
