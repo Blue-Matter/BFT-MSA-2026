@@ -345,7 +345,7 @@ ggsave("figures/data/FI_Index_compare_VAST.png", g, height = 2.5, width = 6)
 
 
 ## Stock of origin ----
-# Set 1 provided by Alex Hanke, DFO
+# Set 1 provided by Alex Hanke, DFO, April 2026
 SOO1 <- rbind(
   read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Otolith"),
   read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) |> mutate(Source = "Genetic")
@@ -387,7 +387,7 @@ ggsave("figures/data/SOO1_exN10.png", g, height = 7, width = 6)
 
 
 
-# Set 2 provided by Igaratza Fraile, AZTI
+# Set 2 provided by Igaratza Fraile, AZTI, June 2026
 SOO2 <- rbind(
   readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) |>
     mutate(Source = "Otolith"),
@@ -470,25 +470,29 @@ ggsave("figures/data/SOO_N_season.png", g, height = 5, width = 6)
 
 
 
-# Set 3
-SOO3_fleet <- data.frame(
-  Fleet = c("CAN", "USA_1", "USA_2"),
-  Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
-) %>%
-  left_join(fleet_names, by = "Code")
+# Set 3, A. Hanke, August 2026
+SOO3 <- rbind(
+  readr::read_csv("data/SOO/Empirical_Profile_Stock_Predictions_JPN.csv") %>%
+    select(Year, Fleet, Predicted_Value, CV, Lower_95, Upper_95) %>%
+    rename(P_West_Mean = Predicted_Value) %>%
+    mutate(Type = "Empirical Profile"),
+  readr::read_csv("data/SOO/P_West_Year_Fleet_Marginalized.csv") %>%
+    select(Year, Fleet, P_West_Mean, CV, Lower_95, Upper_95) %>%
+    mutate(Type = "Marginalized")
+)
 
-SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
-  left_join(SOO3_fleet, by = "Fleet")
+N <- readr::read_csv("data/SOO/P_West_Year_Fleet_Marginalized.csv") %>%
+  select(Year, Fleet, N_Obs)
 
-g <- ggplot(SOO3, aes(Year, Predicted_Value, colour = Fleet)) +
-  geom_point() +
-  geom_line(linewidth = 0.1) +
-  geom_linerange(aes(ymin = Lower_95, ymax = Upper_95)) +
-  labs(y = "Proportion WBFT") +
-  coord_cartesian(ylim = c(0, 1))
-ggsave("figures/data/SOO3.png", g, height = 4, width = 6)
-
-
+g <- left_join(SOO3, N) %>%
+  ggplot(aes(Year, P_West_Mean)) +
+  geom_line(linewidth = 0.5, aes(colour = Fleet)) +
+  geom_linerange(linewidth = 0.25, aes(colour = Fleet, ymin = Lower_95, ymax = Upper_95)) +
+  geom_point(shape = 21, alpha = 0.75, aes(fill = Fleet, size = N_Obs)) +
+  facet_wrap(vars(Type), ncol = 2) +
+  theme(legend.position = "bottom") +
+  labs(y = "Predicted P(West)", size = "Sample Size (N)")
+ggsave("figures/data/SOO_WATL.png", g, height = 4, width = 8)
 
 
 
