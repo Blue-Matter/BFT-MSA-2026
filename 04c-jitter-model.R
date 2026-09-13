@@ -3,11 +3,8 @@
 library(multiSA)
 library(tidyverse)
 
-Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")
-model_name <- paste0(Design$output_name[1], ".rds")
-
-Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02_movement.csv")
-model_name <- paste0(Design$output_name[1], ".rds")
+Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_movement.csv")
+model_name <- paste0(Design$output_name, ".rds")
 
 for (j in 1:length(model_name)) {
   i <- model_name[j]
