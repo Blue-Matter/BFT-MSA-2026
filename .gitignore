@@ -8,3 +8,6 @@ data/
 report-SCRS-2026-165/
 
 *.docx
+/model_input
+/tables
+/model_output
