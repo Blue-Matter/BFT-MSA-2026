@@ -345,150 +345,29 @@ ggsave("figures/data/FI_Index_compare_VAST.png", g, height = 2.5, width = 6)
 
 
 ## Stock of origin ----
-# Set 1 provided by Alex Hanke, DFO
-SOO1 <- rbind(
-  read.csv(file.path("data", "SOO", "Isotope_mixing_Proportion_Estimates_v2.csv")) |> mutate(Source = "Otolith"),
-  read.csv(file.path("data", "SOO", "Genetic_mixing_Proportion_Estimates.csv")) |> mutate(Source = "Genetic")
-) |>
-  mutate(Season = substr(Quarter, 2, 2) |> as.numeric()) %>%
-  mutate(Year = fYear + 0.25 * (Season - 1)) %>%
-  arrange(Year) %>%
-  mutate(lwr = plogis(qlogis(Prob_West) - 1.96 * SE),
-       upr = plogis(qlogis(Prob_West) + 1.96 * SE))
+# Set 3, A. Hanke, August 2026
+SOO3 <- rbind(
+  readr::read_csv("data/SOO/Empirical_Profile_Stock_Predictions_JPN.csv") %>%
+    select(Year, Fleet, Predicted_Value, CV, Lower_95, Upper_95) %>%
+    rename(P_West_Mean = Predicted_Value) %>%
+    mutate(Type = "Empirical Profile"),
+  readr::read_csv("data/SOO/P_West_Year_Fleet_Marginalized.csv") %>%
+    select(Year, Fleet, P_West_Mean, CV, Lower_95, Upper_95) %>%
+    mutate(Type = "Marginalized")
+)
 
-g <- SOO1 %>%
-  mutate(Area = factor(Region, area_names$Name)) %>%
-  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Probability WBFT", title = "Set 1 (A. Hanke)") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO1.png", g, height = 7, width = 6)
+N <- readr::read_csv("data/SOO/P_West_Year_Fleet_Marginalized.csv") %>%
+  select(Year, Fleet, N_Obs)
 
-g <- SOO1 %>%
-  filter(N >= 10) %>%
-  mutate(Area = factor(Region, area_names$Name)) %>%
-  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Probability WBFT", title = "Set 1 (A. Hanke)") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO1_exN10.png", g, height = 7, width = 6)
-
-
-
-# Set 2 provided by Igaratza Fraile, AZTI
-SOO2 <- rbind(
-  readxl::read_excel(file.path("data", "SOO", "mixing_by_strataOTO.xlsx")) |>
-    mutate(Source = "Otolith"),
-  readxl::read_excel(file.path("data", "SOO", "mixing_by_strataGEN.xlsx")) |>
-    mutate(Source = "Genetic") |>
-    rename(PropGOM = PropGOM09)
-) %>%
-  mutate(Prob_West = as.numeric(PropGOM), SE = as.numeric(SE)) %>%
-  mutate(Region = ifelse(Region == "NATL", "EATL", Region)) %>%
-  mutate(lwr = plogis(qlogis(Prob_West) - 1.96 * SE),
-         upr = plogis(qlogis(Prob_West) + 1.96 * SE))
-
-
-g <- SOO2 %>%
-  filter(!is.na(Prob_West)) %>%
-  rename(N = N_total) %>%
-  mutate(Area = factor(Region, c("GOM", "WATL", "NATL", "EATL", "MED"))) %>%
-  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Probability WBFT", title = "Set 2 (I. Fraile)") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO2.png", g, height = 7, width = 6)
-
-g <- SOO2 %>%
-  filter(!is.na(Prob_West)) %>%
-  rename(N = N_total) %>%
-  filter(N >= 10) %>%
-  mutate(Area = factor(Region, c("GOM", "WATL", "NATL", "EATL", "MED"))) %>%
-  ggplot(aes(Year, Prob_West, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 1), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Probability WBFT", title = "Set 2 (I. Fraile)") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO2_exN10.png", g, height = 7, width = 6)
-
-# SOO sample size
-g <- SOO1 %>%
-  mutate(Area = factor(Region, area_names$Name)) %>%
-  ggplot(aes(Year, N, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(paste("Age:", fAGE))) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 2000), xlim = c(1970, 2026), expand = FALSE) +
-  expand_limits(y = 0) +
-  labs(x = "Year", y = "Sample Size", title = "Stock of origin") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO_N.png", g, height = 5, width = 6)
-
-g <- SOO1 %>%
-  mutate(Area = factor(Region, area_names$Name)) %>%
-  filter(fAGE == "'9+") %>%
-  ggplot(aes(Year, N, fill = Source, group = Source, shape = N > 10)) +
-  geom_line(aes(linetype = Source), linewidth = 0.1) +
-  geom_linerange(linewidth = 0.25, aes(ymin = lwr, ymax = upr)) +
-  geom_point(size = 0.75, shape = 21) +
-  facet_grid(vars(Area), vars(Quarter)) +
-  scale_fill_manual(values = c("black", "white")) +
-  coord_cartesian(ylim = c(0, 2000), xlim = c(1970, 2026), expand = FALSE) +
-  labs(x = "Year", y = "Sample Size", title = "Stock of origin") +
-  theme(legend.position = "bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave("figures/data/SOO_N_season.png", g, height = 5, width = 6)
-
-
-
-
-
-
-# Set 3
-SOO3_fleet <- data.frame(
-  Fleet = c("CAN", "USA_1", "USA_2"),
-  Code = c("RRCAN", "RRUSAFS", "RRUSAFB")
-) %>%
-  left_join(fleet_names, by = "Code")
-
-SOO3 <- readr::read_csv(file.path("data", "SOO", "Empirical_Profile_Stock_Predictions.csv")) %>%
-  left_join(SOO3_fleet, by = "Fleet")
-
-g <- ggplot(SOO3, aes(Year, Predicted_Value, colour = Fleet)) +
-  geom_point() +
-  geom_line(linewidth = 0.1) +
-  geom_linerange(aes(ymin = Lower_95, ymax = Upper_95)) +
-  labs(y = "Proportion WBFT") +
-  coord_cartesian(ylim = c(0, 1))
-ggsave("figures/data/SOO3.png", g, height = 4, width = 6)
-
-
+g <- left_join(SOO3, N) %>%
+  ggplot(aes(Year, P_West_Mean)) +
+  geom_line(linewidth = 0.5, aes(colour = Fleet)) +
+  geom_linerange(linewidth = 0.25, aes(colour = Fleet, ymin = Lower_95, ymax = Upper_95)) +
+  geom_point(shape = 21, alpha = 0.75, aes(fill = Fleet, size = N_Obs)) +
+  facet_wrap(vars(Type), ncol = 2) +
+  theme(legend.position = "bottom") +
+  labs(y = "Predicted P(West)", size = "Sample Size (N)")
+ggsave("figures/data/SOO_WATL.png", g, height = 4, width = 8)
 
 
 

@@ -5,14 +5,11 @@ library(tidyverse)
 source("99-functions-compare.R")
 
 # Load design data frame of model fits ----
-# This script is not automated, you need to choose one!
+# This script is not automated, you need to choose a set! Choose among Lines 9, 21, or 33
 if (FALSE) {
 
-  Design <- rbind(
-    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1:2, ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[1, ]
-  ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR SD = 0.18", "(2a) NM: CKMR SD = 0.02"))
+  # Compare models without CKMR and with two different CKMR weights
+  Design <- readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1:3, ]
   dir_save <- "figures/fit/compare_08.19_seasonal"
   table_suffix <- "08.19_seasonal"
 
@@ -20,50 +17,24 @@ if (FALSE) {
 
 if (FALSE) {
 
+  # Compare models without CKMR, with CKMR, with CKMR+mixing, with CKMR+mixing+movement
   Design <- rbind(
-    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 4), ]
-  ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR", "(3) NM: CKMR+mixing"))
-  dir_save <- "figures/fit/compare_08.19_seasonal_CKMR02"
-  table_suffix <- "08.19_seasonal_CKMR02"
-
-}
-
-#if (FALSE) {
-#  Design <- readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 4), ] %>%
-#    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR", "(3) NM: CKMR+mixing"))
-#  dir_save <- "figures/fit/compare_08.19_seasonal_VAST_CKMR02"
-#  table_suffix <- "08.19_seasonal_VAST_CKMR02"
-#}
-
-if (FALSE) {
-
-  Design <- rbind(
-    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[1, ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02.csv")[c(1, 4), ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_CKMR02_movement.csv")[1, ]
-  ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR",
-                          "(3) NM: CKMR+mixing", "(4) Mov: CKMR+mixing"))
+    readr::read_csv("tables/Design_08.19.2026_seasonal.csv")[c(1, 3, 4), ],
+    readr::read_csv("tables/Design_08.19.2026_seasonal_movement.csv")[1, ]
+  )
   dir_save <- "figures/fit/compare_08.19_seasonal_movement"
   table_suffix <- "08.19_seasonal_movement"
+
 }
 
 if (FALSE) {
   Design <- rbind(
-    readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02.csv")[c(1, 2, 5), ],
-    readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_CKMR02_movement.csv")[1, ]
-  ) %>%
-    mutate(model_name = c("(1) NM: no CKMR", "(2) NM: CKMR",
-                          "(3) NM: CKMR+mixing", "(4) Mov: CKMR+mixing"))
+    readr::read_csv("tables/Design_08.19.2026_seasonal_VAST.csv"),
+    readr::read_csv("tables/Design_08.19.2026_seasonal_movement.csv")[2, ]
+  )
   dir_save <- "figures/fit/compare_08.19_seasonal_movement_VAST"
   table_suffix <- "08.19_seasonal_movement_VAST"
 }
-
-#Design <- readr::read_csv("tables/Design_08.19.2026_annual.csv")
-#dir_save <- "figures/fit/compare_08.19_annual"
-#table_suffix <- "08.19_annual"
 
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
@@ -122,7 +93,7 @@ if (FALSE) {
     as.data.frame() %>%
     round() %>%
     mutate(ratio = round(EBFT/WBFT, 2))
-  write.csv(R0_df, file = paste0("tables/compare_R0_", table_suffix, ".csv"))
+  #write.csv(R0_df, file = paste0("tables/compare_R0_", table_suffix, ".csv"))
 }
 
 
