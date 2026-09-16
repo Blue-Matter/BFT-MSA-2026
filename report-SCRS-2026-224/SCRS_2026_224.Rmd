@@ -410,7 +410,7 @@ include_graphics(here::here("figures/fit/compare_08.19_seasonal_movement_VAST/co
 ```
 
 ```{r}
-fig_caption("Observed (black points) and predicted (colour lines) mean lengths from the length composition in the four models by fleet and area. The seaonal length compositions are fitted with a multinomial likelihood using the natural logarithm of the sample sizes, but time series of mean lengths could more succinctly summarize goodness of fit.", "fit-mlen")
+fig_caption("Observed (black points) and predicted (colour lines) mean lengths from the length composition in the four models by fleet and area. The seasonal length compositions are fitted with a multinomial likelihood using the natural logarithm of the sample sizes, but time series of mean lengths could more succinctly summarize goodness of fit.", "fit-mlen")
 ```
 
 \newpage
