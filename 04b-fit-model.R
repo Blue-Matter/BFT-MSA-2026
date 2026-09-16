@@ -10,9 +10,8 @@ source("99-functions-fit.R")
 # Load design data frame
 # Fit all models at once and save to disk
 Design <- rbind(
-  readr::read_csv("tables/Design_08.19.2026_seasonal.csv"),
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST.csv"),
-  readr::read_csv("tables/Design_08.19.2026_seasonal_VAST_movement.csv")
+  readr::read_csv("tables/Design_09.16.2026_seasonal.csv"),
+  readr::read_csv("tables/Design_09.16.2026_seasonal_movement.csv")[1, ]
 )
 
 # Fit all models in parallel or in a loop ----

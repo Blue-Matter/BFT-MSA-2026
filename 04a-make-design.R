@@ -52,6 +52,7 @@ Design <- data.frame(
   sel_prior = TRUE,
   fix_sel = FALSE,
   est_stocksel = c(FALSE, FALSE, FALSE, TRUE),
+  minI_SD = NA,
   Wareas = 2,
   Eareas = c(2, 2, 2, 3),
   output_name = paste0("seasonal_selprior", 1:4, "_08.19"),
@@ -78,6 +79,7 @@ Design <- data.frame(
   sel_prior = TRUE,
   fix_sel = FALSE,
   est_stocksel = c(FALSE, FALSE, TRUE),
+  minI_SD = NA,
   Wareas = 2,
   Eareas = c(2, 2, 3),
   output_name = paste0("seasonal_selprior", 1:3, "_08.19a"),
@@ -104,11 +106,82 @@ Design <- data.frame(
   sel_prior = TRUE,
   fix_sel = FALSE,
   est_stocksel = TRUE,
+  minI_SD = NA,
   Wareas = 2,
   Eareas = 3,
   output_name = paste0("seasonal_selprior", 1:2, "_08.19b"),
   model_name = "(4) Mov: CKMR+mixing"
 )
 readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_movement.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Design <- data.frame(
+  input_dir = "model_input/06.30.2026",
+  annual = FALSE,
+  movement = FALSE,
+  rec_devvector = FALSE,
+  initC_scalar = 0.5,
+  lambda_CAL = 1,
+  lambda_SC = c(0, 0, 0, 1),
+  lambda_tag = 0,
+  SC_set = 3,
+  SC_subset = "all",
+  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
+  SSB_sd = c(0.18, 0.18, 0.02, 0.02),
+  spat_prior = FALSE,
+  sel_prior = TRUE,
+  fix_sel = FALSE,
+  est_stocksel = c(FALSE, FALSE, FALSE, TRUE),
+  minI_SD = 0.1,
+  Wareas = 2,
+  Eareas = c(2, 2, 2, 3),
+  output_name = paste0("seasonal_selprior", 1:4, "_09.16"),
+  model_name = c("(1) NM: no CKMR", "(2) NM: CKMR SD = 0.18", "(2a) NM: CKMR SD = 0.02",
+                 "(3) NM: CKMR+mixing")
+)
+readr::write_csv(Design, "tables/Design_09.16.2026_seasonal.csv")
+
+
+# Models with movement, first line with regular indices, second line with VAST indices
+Design <- data.frame(
+  input_dir = c("model_input/06.30.2026", "model_input/06.30.2026_VAST"),
+  annual = FALSE,
+  movement = TRUE,
+  rec_devvector = FALSE,
+  initC_scalar = 0.5,
+  lambda_CAL = 1,
+  lambda_SC = 1,
+  lambda_tag = 1,
+  SC_set = 3,
+  SC_subset = "all",
+  SSB_prior = TRUE,
+  SSB_sd = 0.02,
+  spat_prior = FALSE,
+  sel_prior = TRUE,
+  fix_sel = FALSE,
+  est_stocksel = TRUE,
+  minI_SD = c(0.1, NA),
+  Wareas = 2,
+  Eareas = 3,
+  output_name = paste0("seasonal_selprior", 1:2, "_09.16"),
+  model_name = "(4) Mov: CKMR+mixing"
+)
+readr::write_csv(Design, "tables/Design_09.16.2026_seasonal_movement.csv")
 
 

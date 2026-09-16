@@ -265,6 +265,11 @@ wrapper_fn <- function(x = 1, Design) {
   dat@Dsurvey@lambdaI_i <- rep(1, dat@Dsurvey@ni)
   dat@Dsurvey@lambdaI_i[grepl("CAN_ACO_SUV2", dat@Dlabel@index)] <- 0
 
+  # Add minimum index SD, note this impacts CKMR as well but override immediately after
+  if (!is.na(Design$minI_SD[x])) {
+    dat@Dsurvey@Isd_ymi[!is.na(dat@Dsurvey@Isd_ymi) & dat@Dsurvey@Isd_ymi < Design$minI_SD] <- Design$minI_SD
+  }
+
   # Add CKMR estimate of WBFT SSB
   if (!Design$SSB_prior[x]) {
     # Set CKMR survey likelihood weight to zero
