@@ -91,6 +91,24 @@ NatalIDs <- dat0 %>%
 #filter(NatalIDs, GOM == MED)
 #NotNatal <- filter(dat0, !Tag_ID %in% NatalIDs$Tag_ID)
 
+#### Assign stock of origin to entire database
+tracks_day <- readr::read_csv("data/Etag/BFT_geolocations_2026_03_31.csv") %>%
+  left_join(select(NatalIDs, Tag_ID, Stock), by = c("tag" = "Tag_ID"))
+
+dat_all <- left_join(dat, select(NatalIDs, Tag_ID, Stock), by = "Tag_ID")
+filter(dat_all, Stock_Area == "MED", is.na(Stock))
+
+borders <- rnaturalearth::ne_coastline()
+g <- tracks_day %>%
+  ggplot(aes(lon, lat, group = tag, colour = Stock)) +
+  geom_sf(data = borders, inherit.aes = FALSE) +
+  geom_path(alpha = 0.25) +
+  geom_sf(data = borders, inherit.aes = FALSE) +
+  coord_sf(xlim = c(-100, 50), ylim = c(10, 70)) +
+  facet_wrap(vars(Stock), ncol = 2) +
+  guides(colour = "none") +
+  labs(x = "Longitude", y = "Latitude")
+ggsave("figures/data/Etag_tracks.png", g, height = 4, width = 6)
 
 #### Expands a record (within area) into a daily set of records
 tagexpand <- function(r, dat0) {
