@@ -13,6 +13,11 @@ if (FALSE) {
   dir_save <- "figures/fit/compare_08.19_seasonal"
   table_suffix <- "08.19_seasonal"
 
+  Design <- readr::read_csv("tables/Design_09.16.2026_seasonal.csv")[1:3, ]
+  dir_save <- "figures/fit/compare_09.16_seasonal"
+  table_suffix <- "09.16_seasonal"
+
+
 }
 
 if (FALSE) {
@@ -24,6 +29,15 @@ if (FALSE) {
   )
   dir_save <- "figures/fit/compare_08.19_seasonal_movement"
   table_suffix <- "08.19_seasonal_movement"
+
+  # Compare models without CKMR, with CKMR, with CKMR+mixing, with CKMR+mixing+movement
+  Design <- rbind(
+    readr::read_csv("tables/Design_09.16.2026_seasonal.csv")[c(1, 3, 4), ],
+    readr::read_csv("tables/Design_09.16.2026_seasonal_movement.csv")[1, ]
+  )
+  dir_save <- "figures/fit/compare_09.16_seasonal_movement"
+  table_suffix <- "09.16_seasonal_movement"
+
 
 }
 
@@ -134,7 +148,7 @@ ggsave(file.path(dir_save, "compare_CPUE_fit.png"), g, width = 6, height = 8)
 
 # Fishery-independent indices
 g <- plot_fit_index(fits, Design$model_name, "fi")
-#g@data <- filter(g@data, !grepl("CAN_ACO_SUV2", name))
+g@data <- filter(g@data, !grepl("CAN_ACO_SUV2", name))
 ggsave(file.path(dir_save, "compare_index_fit.png"), g, width = 6, height = 5)
 
 # SOO ----

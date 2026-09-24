@@ -31,7 +31,11 @@ wrapper_fn <- function(x = 1, Design) {
 
   # Downweight SC
   dat@Dfishery@lambdaSC_f <- Design$lambda_SC[x]
-  #dat@Dfishery@SCstdev_ymafrs[] <- dat@Dfishery@SCstdev_ymafrs + 0.1
+
+  if (!is.na(Design$minSC_SD[x])) {
+    dat@Dfishery@SCstdev_ymafrs[!is.na(dat@Dfishery@SCstdev_ymafrs) & dat@Dfishery@SCstdev_ymafrs < Design$minSC_SD[x]] <-
+      Design$minSC_SD[x]
+  }
 
   #if (Design$SC_subset[x] == "otolith") dat@Dfishery@lambdaSC_f[2] <- 0 # Set genetic to zero
   #if (Design$SC_subset[x] == "genetic") dat@Dfishery@lambdaSC_f[1] <- 0 # Set otolith to zero
@@ -267,16 +271,14 @@ wrapper_fn <- function(x = 1, Design) {
 
   # Add minimum index SD, note this impacts CKMR as well but override immediately after
   if (!is.na(Design$minI_SD[x])) {
-    dat@Dsurvey@Isd_ymi[!is.na(dat@Dsurvey@Isd_ymi) & dat@Dsurvey@Isd_ymi < Design$minI_SD] <- Design$minI_SD
+    dat@Dsurvey@Isd_ymi[!is.na(dat@Dsurvey@Isd_ymi) & dat@Dsurvey@Isd_ymi < Design$minI_SD[x]] <- Design$minI_SD[x]
   }
 
   # Add CKMR estimate of WBFT SSB
-  if (!Design$SSB_prior[x]) {
-    # Set CKMR survey likelihood weight to zero
-    dat@Dsurvey@lambdaI_i[dat@Dlabel@index == "WBFT_CKMR"] <- 0
-  } else {
-    dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), ifelse(Design$annual[x], 1, 2), dat@Dsurvey@ni] <- Design$SSB_sd[x]
-  }
+  dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), ifelse(Design$annual[x], 1, 2), dat@Dsurvey@ni] <- Design$SSB_sd[x]
+
+  # Set CKMR survey likelihood weight to zero
+  if (!Design$SSB_prior[x]) dat@Dsurvey@lambdaI_i[grepl("CKMR", dat@Dlabel@index)] <- 0
 
   # Fit model
   fit <- fit_MSA(
