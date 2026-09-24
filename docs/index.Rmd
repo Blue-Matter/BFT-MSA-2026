@@ -23,7 +23,7 @@ R code [repository](https://github.com/Blue-Matter/BFT-MSA-2026)
 
 ## SCRS papers
 
-Huynh, Q.C. 2026. Development of the multi-stock age-structured model for Atlantic bluefin tuna in 2026. Collect. Vol. Sci. Pap. [SCRS/2026/165](https://docs.google.com/document/d/1NBuCMat-nqH9Xnx7kLRJPcjj6OL0581o/edit?usp=sharing&ouid=110611304283721893731&rtpof=true&sd=true)
+Huynh, Q.C. 2026. Development of the multi-stock age-structured model for Atlantic bluefin tuna in 2026. Collect. Vol. Sci. Pap. [SCRS/2026/165](https://iccat.int/Documents/CVSP/CV083_2026/n_1/CV08301165.pdf)
 
 Huynh, Q.C. and Hanke, A. 2026. Step-wise development of mixed-stock population models for Atlantic bluefin tuna in 2026, with fleet-specific stock mixing estimates in the West Atlantic. Collect. Vol. Sci. Pap. [SCRS/2026/224](https://docs.google.com/document/d/1cwcJJraX5mYcyyppyanTBLlqlRmYraX6/edit?usp=sharing&ouid=110611304283721893731&rtpof=true&sd=true)
 
