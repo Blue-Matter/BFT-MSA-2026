@@ -98,16 +98,20 @@ tracks_day <- readr::read_csv("data/Etag/BFT_geolocations_2026_03_31.csv") %>%
 dat_all <- left_join(dat, select(NatalIDs, Tag_ID, Stock), by = "Tag_ID")
 filter(dat_all, Stock_Area == "MED", is.na(Stock))
 
-borders <- rnaturalearth::ne_coastline()
+borders <- rnaturalearth::ne_countries()
+BFT_poly <- readRDS("data/Etag/stratum_polygon.rds")
 g <- tracks_day %>%
-  ggplot(aes(lon, lat, group = tag, colour = Stock)) +
+  ggplot(aes(lon, lat, group = tag)) +
+  geom_sf(data = borders, inherit.aes = FALSE) +
+  geom_sf(data = BFT_poly, inherit.aes = FALSE, alpha = 0.25, aes(fill = stratum)) +
   geom_sf(data = borders, inherit.aes = FALSE) +
   geom_path(alpha = 0.25) +
-  geom_sf(data = borders, inherit.aes = FALSE) +
   coord_sf(xlim = c(-100, 50), ylim = c(10, 70)) +
   facet_wrap(vars(Stock), ncol = 2) +
   guides(colour = "none") +
-  labs(x = "Longitude", y = "Latitude")
+  labs(x = "Longitude", y = "Latitude", fill = NULL) +
+  scale_fill_viridis_d() +
+  theme(legend.position = "bottom")
 ggsave("figures/data/Etag_tracks.png", g, height = 4, width = 6)
 
 #### Expands a record (within area) into a daily set of records
