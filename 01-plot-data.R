@@ -383,24 +383,38 @@ ggsave("figures/data/SOO_WATL.png", g, height = 4, width = 8)
 ageclass_key <- readxl::read_excel(xlsx_file, sheet = "Age_classes") %>%
   mutate(Name = ifelse(Class == 1, "0-4", ifelse(Class == 2, "5-8", "9+"))) %>%
   summarise(n = n(), .by = c(Class, Name))
-etag <- readr::read_csv(file.path("data", "Etag", "Etag_proportions_04.26.2026.csv")) %>%
-  mutate(AgeClass = ageclass_key$Name[AgeClass])
 
+etag <- readr::read_csv(file.path("data", "Etag", "Etag_proportions_10.02.2026.csv"))
+
+library(ggrepel)
 g <- etag %>%
+  filter(AgeClass == 1) %>%
   mutate(To = match(To, area_names$Name)) %>%
   mutate(From_i = paste("From:", From) |> factor(paste("From:", area_names$Name))) %>%
-  ggplot(aes(To, p, colour = Stock, shape = factor(AgeClass), linetype = factor(AgeClass))) +
+  ggplot(aes(To, p, colour = Stock)) +
   facet_grid(vars(paste("Season", Quarter)), vars(From_i)) +
   geom_line() +
-  geom_point(aes(size = Nfr)) +
-  labs(x = "Destination", y = "Proportion", size = "N", shape = "Age", linetype = "Age") +
+  geom_point() +
+  geom_text_repel(aes(label = N)) +
+  labs(x = "Destination", y = "Proportion", title = "<175 cm") +
   theme(legend.position = 'bottom',
         panel.grid.minor = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_linetype_manual(values = 3:1) +
-  scale_shape_manual(values = c(1, 4, 16)) +
-  scale_x_continuous(labels = area_names$Name, breaks = 1:nrow(area_names)) +
-  guides(colour = guide_legend(ncol = 1),
-         linetype = guide_legend(ncol = 1),
-         size = guide_legend(ncol = 1))
-ggsave("figures/data/Etag.png", g, height = 6, width = 6)
+  scale_x_continuous(labels = area_names$Name, breaks = 1:nrow(area_names))
+ggsave("figures/data/Etag_ageclass1.png", g, height = 6, width = 6)
+
+g <- etag %>%
+  filter(AgeClass == 2) %>%
+  mutate(To = match(To, area_names$Name)) %>%
+  mutate(From_i = paste("From:", From) |> factor(paste("From:", area_names$Name))) %>%
+  ggplot(aes(To, p, colour = Stock)) +
+  facet_grid(vars(paste("Season", Quarter)), vars(From_i)) +
+  geom_line() +
+  geom_point() +
+  geom_text_repel(aes(label = N)) +
+  labs(x = "Destination", y = "Proportion", title = ">175 cm") +
+  theme(legend.position = 'bottom',
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_continuous(labels = area_names$Name, breaks = 1:nrow(area_names))
+ggsave("figures/data/Etag_ageclass2.png", g, height = 6, width = 6)

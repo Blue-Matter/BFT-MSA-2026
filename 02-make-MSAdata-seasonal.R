@@ -94,7 +94,7 @@ if (FALSE) {
   dev.off()
 }
 
-Dmodel@prior <- prior_dist
+#Dmodel@prior <- prior_dist
 
 
 
@@ -428,8 +428,7 @@ Dsurvey@qest_i <- c(rep("est", Dsurvey@ni - 1), 1)
 
 
 #### Tag transitions ----
-etag <- readr::read_csv(file.path("data", "Etag", "Etag_proportions_04.26.2026.csv")) %>%
-  mutate(AgeName = ageclass_key$Name[AgeClass]) #%>%
+etag <- readr::read_csv(file.path("data", "Etag", "Etag_proportions_10.02.2026.csv"))
   #summarise(N = sum(N), Nfr = sum(Nfr), .by = c(Stock, Quarter, From, To)) %>%
   #mutate(p = N/Nfr, .by = c(Stock, Quarter, From))
 
@@ -443,15 +442,16 @@ etag_matrix <- etag %>%
 
 Dtag <- new("Dtag")
 
-Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, 3, Dmodel@nr, Dmodel@nr, Dmodel@ns))
+n_ac <- 2
+Dtag@tag_ymarrs <- array(0, c(1, Dmodel@nm, n_ac, Dmodel@nr, Dmodel@nr, Dmodel@ns))
 Dtag@tag_ymarrs[etag_matrix[, c("y", "Quarter", "AgeClass", "fr", "to", "s")]] <- etag_matrix[, "N"]
 
 # Data informs all years equally (constant movement with years)
 Dtag@tag_yy <- matrix(1, 1, Dmodel@ny)
 
-# Three age classes in dataset
-Dtag@tag_aa <- matrix(0, 3, Dmodel@na)
-Dtag@tag_aa[1, 0:4 + 1] <- Dtag@tag_aa[2, 5:8 + 1] <- Dtag@tag_aa[3, 10:Dmodel@na] <- 1
+# Two age classes in dataset (ages 0-7 and 8+)
+Dtag@tag_aa <- matrix(0, n_ac, Dmodel@na)
+Dtag@tag_aa[1, 0:7 + 1] <- Dtag@tag_aa[2, 9:Dmodel@na] <- 1
 
 # Multinomial distribution with sample size
 Dtag@tag_like <- "multinomial"
@@ -554,7 +554,7 @@ Dlabel <- new(
 
 
 #### Save objects
-dir_save <- "model_input/06.30.2026"
+dir_save <- "model_input/10.02.2026"
 if (!dir.exists(dir_save)) dir.create(dir_save)
 
 saveRDS(Dmodel, file.path(dir_save, "Dmodel.rds"))
