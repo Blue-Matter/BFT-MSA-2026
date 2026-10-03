@@ -377,7 +377,12 @@ Dsurvey@Isd_ymi[index_value[, c("y", "Season", "i")]] <- index_value[, "CV"]
 Dsurvey@Iobs_ymi[match(2018, ModelYear), Dstock@m_spawn, Dsurvey@ni] <- 18000
 Dsurvey@Isd_ymi[match(2018, ModelYear), Dstock@m_spawn, Dsurvey@ni] <- 0.18
 
-Dsurvey@unit_i <- rep("B", Dsurvey@ni) # All indices have biomass units
+# Biomass units
+Iunits <- readr::read_csv(file.path("data", "1_M3_data", "index_units.csv"))
+Dsurvey@unit_i <- c(
+  Iunits$Unit[match(c(cpue_use, index_use), Iunits$Name)],
+  "B" # CKMR
+)
 
 # Identify area and stock that each index samples. 1 = TRUE for index i in area r for stock s
 cpue_samp <- array(0, c(max(cpue_names$i), nr, ns))

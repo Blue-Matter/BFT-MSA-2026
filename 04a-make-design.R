@@ -20,8 +20,7 @@ library(parallel)
 #          2 = from I. Fraile by year, area, season (June 2026)
 #          3 = from A. Hanke by year and fleet in WATL (genetics only) (August 2026)
 # SC_subset - Subset of dataset to fit, only for SC_set = 1 or 2, either "all", "otolith", or "genetic"
-# SSB_prior - logical, whether to use CKMR estimate of Western SSB in 2018
-# SSB_sd - Numeric, decrease the SE of SSB prior
+# lambda_SSB - Lambda factor for CKMR estimate of Western SSB in 2018
 # spat_prior - logical, whether to use spatial mixing priors
 # sel_prior - logical, whether to use sel prior
 # Wareas - Either 2 or 3 for number of areas where WBFT can inhabit
@@ -33,160 +32,54 @@ library(parallel)
 # 4 models:
 # (1) no CKMR
 # (2) With CKMR estimate, SD = 0.18
-# (2a) With CKMR estimate, SD = 0.02
-# (3) With CKMR + stock mixing in West Atlantic
+# (2a) With CKMR estimate, upweight lambda = 10
+# (3) 2a, with CKMR + stock mixing in West Atlantic
 Design <- data.frame(
-  input_dir = "model_input/06.30.2026",
+  input_dir = "model_input/10.02.2026",
   annual = FALSE,
   movement = FALSE,
   rec_devvector = FALSE,
   initC_scalar = 0.5,
   lambda_CAL = 1,
-  lambda_SC = c(0, 0, 0, 1),
+  lambda_SC = 0,
   lambda_tag = 0,
   SC_set = 3,
   SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
-  SSB_sd = c(0.18, 0.18, 0.02, 0.02),
+  lambda_SSB = c(0, 1, 10),
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
-  est_stocksel = c(FALSE, FALSE, FALSE, TRUE),
-  minI_SD = NA,
+  est_stocksel = FALSE,
+  minI_SD = 0.1,
   minSC_SD = NA,
   Wareas = 2,
-  Eareas = c(2, 2, 2, 3),
-  output_name = paste0("seasonal_selprior", 1:4, "_08.19"),
-  model_name = c("(1) NM: no CKMR", "(2) NM: CKMR SD = 0.18", "(2a) NM: CKMR SD = 0.02",
-                 "(3) NM: CKMR+mixing")
+  Eareas = 2,
+  output_name = paste0("seasonal_selprior", 1:3, "_10.02"),
+  model_name = c("(1) NM: no CKMR", "(2) NM: CKMR", "(2a) NM: CKMR, upweight")
 )
-readr::write_csv(Design, "tables/Design_08.19.2026_seasonal.csv")
+readr::write_csv(Design, "tables/Design_10.02.2026_seasonal.csv")
 
-# Same as Line 32 but with VAST indices
 Design <- data.frame(
   input_dir = "model_input/06.30.2026",
   annual = FALSE,
-  movement = FALSE,
-  rec_devvector = FALSE,
-  initC_scalar = 0.5,
-  lambda_CAL = 1,
-  lambda_SC = c(0, 0, 1),
-  lambda_tag = 0,
-  SC_set = 3,
-  SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, TRUE),
-  SSB_sd = c(0.18, 0.02, 0.02),
-  spat_prior = FALSE,
-  sel_prior = TRUE,
-  fix_sel = FALSE,
-  est_stocksel = c(FALSE, FALSE, TRUE),
-  minI_SD = NA,
-  minSC_SD = NA,
-  Wareas = 2,
-  Eareas = c(2, 2, 3),
-  output_name = paste0("seasonal_selprior", 1:3, "_08.19a"),
-  model_name = c("(1) NM: no CKMR", "(2a) NM: CKMR SD = 0.02",
-                 "(3) NM: CKMR+mixing")
-)
-readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_VAST.csv")
-
-# Models with movement, first line with regular indices, second line with VAST indices
-Design <- data.frame(
-  input_dir = c("model_input/06.30.2026", "model_input/06.30.2026_VAST"),
-  annual = FALSE,
-  movement = TRUE,
+  movement = c(FALSE, TRUE),
   rec_devvector = FALSE,
   initC_scalar = 0.5,
   lambda_CAL = 1,
   lambda_SC = 1,
-  lambda_tag = 1,
+  lambda_tag = c(0, 1),
   SC_set = 3,
   SC_subset = "all",
-  SSB_prior = TRUE,
-  SSB_sd = 0.02,
+  lambda_SSB = 10,
   spat_prior = FALSE,
   sel_prior = TRUE,
   fix_sel = FALSE,
   est_stocksel = TRUE,
-  minI_SD = NA,
+  minI_SD = 0.1,
   minSC_SD = NA,
   Wareas = 2,
   Eareas = 3,
-  output_name = paste0("seasonal_selprior", 1:2, "_08.19b"),
-  model_name = "(4) Mov: CKMR+mixing"
+  output_name = paste0("seasonal_selprior", 4:5, "_10.02"),
+  model_name = c("(3) NM: CKMR+mixing", "(4) Mov: CKMR+mixing")
 )
-readr::write_csv(Design, "tables/Design_08.19.2026_seasonal_movement.csv")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Design <- data.frame(
-  input_dir = "model_input/06.30.2026",
-  annual = FALSE,
-  movement = FALSE,
-  rec_devvector = FALSE,
-  initC_scalar = 0.5,
-  lambda_CAL = 1,
-  lambda_SC = c(0, 0, 0, 1),
-  lambda_tag = 0,
-  SC_set = 3,
-  SC_subset = "all",
-  SSB_prior = c(FALSE, TRUE, TRUE, TRUE),
-  SSB_sd = c(0.18, 0.18, 0.05, 0.05),
-  spat_prior = FALSE,
-  sel_prior = TRUE,
-  fix_sel = FALSE,
-  est_stocksel = c(FALSE, FALSE, FALSE, TRUE),
-  minI_SD = 0.2,
-  minSC_SD = c(NA, NA, NA, 0.2),
-  Wareas = 2,
-  Eareas = c(2, 2, 2, 3),
-  output_name = paste0("seasonal_selprior", 1:4, "_09.16"),
-  model_name = c("(1) NM: no CKMR", "(2) NM: CKMR SD = 0.18", "(2a) NM: CKMR SD = 0.05",
-                 "(3) NM: CKMR+mixing")
-)
-readr::write_csv(Design, "tables/Design_09.16.2026_seasonal.csv")
-
-
-# Models with movement, first line with regular indices, second line with VAST indices
-Design <- data.frame(
-  input_dir = c("model_input/06.30.2026", "model_input/06.30.2026_VAST"),
-  annual = FALSE,
-  movement = TRUE,
-  rec_devvector = FALSE,
-  initC_scalar = 0.5,
-  lambda_CAL = 1,
-  lambda_SC = 1,
-  lambda_tag = 1,
-  SC_set = 3,
-  SC_subset = "all",
-  SSB_prior = TRUE,
-  SSB_sd = 0.05,
-  spat_prior = FALSE,
-  sel_prior = TRUE,
-  fix_sel = FALSE,
-  est_stocksel = TRUE,
-  minI_SD = c(0.2, NA),
-  minSC_SD = c(0.2, NA),
-  Wareas = 2,
-  Eareas = 3,
-  output_name = paste0("seasonal_selprior", 1:2, "_09.16b"),
-  model_name = "(4) Mov: CKMR+mixing"
-)
-readr::write_csv(Design, "tables/Design_09.16.2026_seasonal_movement.csv")
-
-
+readr::write_csv(Design, "tables/Design_10.02.2026_seasonal_mixing.csv")
