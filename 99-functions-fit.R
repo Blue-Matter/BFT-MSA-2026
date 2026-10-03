@@ -28,6 +28,7 @@ wrapper_fn <- function(x = 1, Design) {
   #    if (wt[f] < 1) dat@Dfishery@CALN_ymfr[, , f, ] <- wt[f] * dat@Dfishery@CALN_ymfr[, , f, ]
   #  }
   #}
+  dat@Dfishery@CALN_ymfr[, , 17, 2] <- 0
 
   # Downweight SC
   dat@Dfishery@lambdaSC_f <- Design$lambda_SC[x]
@@ -100,12 +101,15 @@ wrapper_fn <- function(x = 1, Design) {
   # Recruitment distribution parameter: proportion recruitment among areas by stock
   # There is always one less degree of freedom than the number of areas for distributing recruitment
   map_recdist_rs <- matrix(NA, dat@Dmodel@nr, dat@Dmodel@ns)
+  prior_recdist <- NULL
 
   if (Design$Wareas[x] == 1) {
     map_recdist_rs[, 2] <- NA
   } else {
     # WBFT always recruit to GOM and WATL
     map_recdist_rs[1, 2] <- 1
+
+    prior_recdist <- c(prior_recdist, "dnorm(p$log_recdist_rs[1, 2], 0, 1.5, log = TRUE)")
   }
 
   if (Design$movement[x]) {
@@ -115,10 +119,18 @@ wrapper_fn <- function(x = 1, Design) {
   } else if (Design$Eareas[x] == 2) {
     # EBFT recruits in EATL/MED (est proportion in MED)
     map_recdist_rs[4, 1] <- 2
+
+    prior_recdist <- c(prior_recdist, "dnorm(p$log_recdist_rs[4, 1], 0, 1.5, log = TRUE)")
   } else if (Design$Eareas[x] == 3) {
     # EBFT recruits in WATL/EATL/MED (est proportions in EATL/MED)
     map_recdist_rs[3:4, 1] <- 2:3
+
+    prior_recdist <- c(prior_recdist,
+                       "dnorm(p$log_recdist_rs[3, 1], 0, 1.5, log = TRUE)",
+                       "dnorm(p$log_recdist_rs[4, 1], 0, 1.5, log = TRUE)"
+                       )
   }
+  dat@Dmodel@prior <- c(dat@Dmodel@prior, prior_recdist)
 
   # Recruitment deviations
   # Don't estimate last two years
@@ -158,50 +170,59 @@ wrapper_fn <- function(x = 1, Design) {
   if (Design$movement[x] && !Design$annual[x]) {
     prior_mov <- NULL
     map_g_ymars <- array(NA, c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@nr, dat@Dmodel@ns))
+    n_ac <- 2
+    ac <- list(0:7 + 1, 9:dat@Dmodel@na)
 
     for (s in 1:dat@Dmodel@ns) {
-      g_s <- matrix(NA_real_, dat@Dmodel@nm, dat@Dmodel@nr)
-      if (s == 1) {
-        i <- 3:4
-        g_s[, i] <- TRUE
-        g_s[, i] <- 1:sum(g_s, na.rm = TRUE)
-      } else {
-        if (Design$Wareas[x] == 2) {
-          dat@Dstock@presence_rs[3, 2] <- FALSE # Turn off WATL presence in EATL (r = 3, s = 2)
-          i <- 1
-        } else if (Design$Wareas[x] == 3) {
-          i <- 1:2
+      for (a in 1:n_ac) {
+        g_s <- matrix(NA_real_, dat@Dmodel@nm, dat@Dmodel@nr)
+        if (s == 1) {
+          i <- 3:4
+          g_s[, i] <- TRUE
+          g_s[, i] <- 1:sum(g_s, na.rm = TRUE)
+        } else {
+          if (Design$Wareas[x] == 2) {
+            dat@Dstock@presence_rs[3, 2] <- FALSE # Turn off WATL presence in EATL (r = 3, s = 2)
+            i <- 1
+          } else if (Design$Wareas[x] == 3) {
+            i <- 1:2
+          }
+          g_s[, i] <- TRUE
+          g_s[, i] <- max(map_g_ymars, na.rm = TRUE) + 1:sum(g_s, na.rm = TRUE)
         }
-        g_s[, i] <- TRUE
-        g_s[, i] <- max(map_g_ymars, na.rm = TRUE) + 1:sum(g_s, na.rm = TRUE)
+        map_g_ymars[, , ac[[a]], , s] <- array(g_s, c(dat@Dmodel@nm, dat@Dmodel@nr, dat@Dmodel@ny, length(ac[[a]]))) %>%
+          aperm(c(3, 1, 4, 2))
+
+        prior_mov <- c(
+          prior_mov,
+          sapply(1:dat@Dmodel@nm, function(m) {
+            sapply(i, function(r) {
+              paste0("dnorm(p$mov_g_ymars[1, ", m, ", ", ac[[a]][1], ", ", r, ", ", s, "], 0, 1.5, log = TRUE)")
+            })
+          }) %>% as.character()
+        )
       }
-      map_g_ymars[, , , , s] <- array(g_s, c(dat@Dmodel@nm, dat@Dmodel@nr, dat@Dmodel@ny, dat@Dmodel@na)) %>%
+
+    }
+    range(map_g_ymars, na.rm = TRUE)
+
+    # Estimate EBFT and WBFT viscosity term by season (resistance to move from current area)
+    map_v_ymas <- array(NA_real_, c(dat@Dmodel@ny, dat@Dmodel@nm, dat@Dmodel@na, dat@Dmodel@ns))
+
+    v <- array(seq(1, dat@Dmodel@nm * dat@Dmodel@ns * n_ac), c(dat@Dmodel@nm, dat@Dmodel@ns, n_ac))
+    for (a in 1:n_ac) {
+      map_v_ymas[, , ac[[a]], ] <- array(v[, , a], c(dat@Dmodel@nm, dat@Dmodel@ns, dat@Dmodel@ny, length(ac[[a]]))) %>%
         aperm(c(3, 1, 4, 2))
 
       prior_mov <- c(
         prior_mov,
         sapply(1:dat@Dmodel@nm, function(m) {
-          sapply(i, function(r) {
-            paste0("dnorm(p$mov_g_ymars[1, ", m, ", 1, ", r, ", ", s, "], 0, 1.5, log = TRUE)")
+          sapply(1:dat@Dmodel@ns, function(s) {
+            paste0("dnorm(p$mov_v_ymas[1, ", m, ", ", ac[[a]][1], ", ", s, "], 0, 1.5, log = TRUE)")
           })
         }) %>% as.character()
       )
     }
-    range(map_g_ymars, na.rm = TRUE)
-
-    # Estimate EBFT and WBFT viscosity term by season (resistance to move from current area)
-    map_v_ymas <- matrix(seq(1, dat@Dmodel@nm * dat@Dmodel@ns), dat@Dmodel@nm, dat@Dmodel@ns) %>%
-      array(c(dat@Dmodel@nm, dat@Dmodel@ns, dat@Dmodel@ny, dat@Dmodel@na)) %>%
-      aperm(c(3, 1, 4, 2))
-
-    prior_mov <- c(
-      prior_mov,
-      sapply(1:dat@Dmodel@nm, function(m) {
-        sapply(1:dat@Dmodel@ns, function(s) {
-          paste0("dnorm(p$mov_v_ymas[1, ", m, ", 1, ", s, "], 0, 1.5, log = TRUE)")
-        })
-      }) %>% as.character()
-    )
 
     map$mov_g_ymars <- map_g_ymars
     map$mov_v_ymas <- map_v_ymas
@@ -257,8 +278,6 @@ wrapper_fn <- function(x = 1, Design) {
         p3 <- NULL
       }
 
-      p3 <- NULL
-
       c(p1, p2, p3)
     }) %>%
       unlist()
@@ -273,12 +292,10 @@ wrapper_fn <- function(x = 1, Design) {
   if (!is.na(Design$minI_SD[x])) {
     dat@Dsurvey@Isd_ymi[!is.na(dat@Dsurvey@Isd_ymi) & dat@Dsurvey@Isd_ymi < Design$minI_SD[x]] <- Design$minI_SD[x]
   }
+  dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), ifelse(Design$annual[x], 1, 2), dat@Dsurvey@ni] <- 0.18
 
-  # Add CKMR estimate of WBFT SSB
-  dat@Dsurvey@Isd_ymi[match(2018, dat@Dlabel@year), ifelse(Design$annual[x], 1, 2), dat@Dsurvey@ni] <- Design$SSB_sd[x]
-
-  # Set CKMR survey likelihood weight to zero
-  if (!Design$SSB_prior[x]) dat@Dsurvey@lambdaI_i[grepl("CKMR", dat@Dlabel@index)] <- 0
+  # Add lambda weight to CKMR estimate of WBFT SSB
+  dat@Dsurvey@lambdaI_i[grepl("CKMR", dat@Dlabel@index)] <- Design$lambda_SSB[x]
 
   # Fit model
   fit <- fit_MSA(
